@@ -96,11 +96,25 @@ func Inject[T any](c *Context) T {
 	}
 
 	typ := reflect.TypeOf((*T)(nil)).Elem()
+	
+	// Fast path: Exact match
 	if instance, ok := c.engine.container[typ]; ok {
 		if typedInstance, ok := instance.(T); ok {
 			return typedInstance
 		}
 	}
+	
+	// Slow path: Check if any registered type implements the interface
+	if typ.Kind() == reflect.Interface {
+		for regTyp, instance := range c.engine.container {
+			if regTyp.Implements(typ) {
+				if typedInstance, ok := instance.(T); ok {
+					return typedInstance
+				}
+			}
+		}
+	}
+	
 	return zero
 }
 
@@ -139,13 +153,14 @@ func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
 }
 
 // SSE sets up Server-Sent Events and executes the streamer function.
-func (c *Context) SSE(streamer func(w *bufio.Writer)) {
+// The streamer should return an error if a write fails (e.g. client disconnects) to gracefully terminate.
+func (c *Context) SSE(streamer func(w *bufio.Writer) error) {
 	c.Ctx.SetContentType("text/event-stream")
 	c.Ctx.Response.Header.Set("Cache-Control", "no-cache")
 	c.Ctx.Response.Header.Set("Connection", "keep-alive")
 	
 	c.Ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-		streamer(w)
+		_ = streamer(w)
 	})
 }
 
