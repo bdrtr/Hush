@@ -138,14 +138,6 @@ func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
 	return c.Ctx.FormFile(key)
 }
 
-var upgrader = websocket.FastHTTPUpgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
-		return true // Disable origin check for default
-	},
-}
-
 // SSE sets up Server-Sent Events and executes the streamer function.
 func (c *Context) SSE(streamer func(w *bufio.Writer)) {
 	c.Ctx.SetContentType("text/event-stream")
@@ -157,9 +149,30 @@ func (c *Context) SSE(streamer func(w *bufio.Writer)) {
 	})
 }
 
-// Upgrade upgrades the HTTP connection to a WebSocket connection.
-func (c *Context) Upgrade(handler func(conn *websocket.Conn)) error {
-	err := upgrader.Upgrade(c.Ctx, handler)
+// Upgrade upgrades the HTTP connection to a WebSocket connection securely.
+func (c *Context) Upgrade(allowedOrigins []string, handler func(conn *websocket.Conn)) error {
+	u := websocket.FastHTTPUpgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(ctx *fasthttp.RequestCtx) bool {
+			if len(allowedOrigins) == 0 {
+				return false // Default secure: block if no origins provided
+			}
+			origin := string(ctx.Request.Header.Peek("Origin"))
+			if origin == "" {
+				// Non-browser clients (mobile, server-to-server) might not send Origin
+				return true
+			}
+			for _, o := range allowedOrigins {
+				if o == "*" || o == origin {
+					return true
+				}
+			}
+			return false
+		},
+	}
+	
+	err := u.Upgrade(c.Ctx, handler)
 	if err != nil {
 		c.Ctx.Error("WebSocket Upgrade Failed", fasthttp.StatusBadRequest)
 	}
