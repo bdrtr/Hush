@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,29 +83,55 @@ func Helmet() hush.HandlerFunc {
 	}
 }
 
-// RateLimit implements a simple fixed-window rate limiter without leaking goroutines.
+type clientData struct {
+	count     int
+	windowEnd time.Time
+}
+
+// RateLimit implements a per-IP fixed-window rate limiter without leaking goroutines.
 func RateLimit(limit int, window time.Duration) hush.HandlerFunc {
 	var mu sync.Mutex
-	clients := make(map[string]int)
-	windowStart := time.Now()
+	clients := make(map[string]*clientData)
 	
 	return func(c *hush.Context) {
-		ip := c.Ctx.RemoteIP().String()
-		
-		mu.Lock()
-		if time.Since(windowStart) >= window {
-			clients = make(map[string]int)
-			windowStart = time.Now()
+		ip := string(c.Ctx.Request.Header.Peek("X-Forwarded-For"))
+		if ip != "" {
+			if commaIdx := strings.IndexByte(ip, ','); commaIdx != -1 {
+				ip = ip[:commaIdx]
+			}
+		} else {
+			ip = c.Ctx.RemoteIP().String()
 		}
 		
-		clients[ip]++
-		count := clients[ip]
-		mu.Unlock()
+		mu.Lock()
+		now := time.Now()
 		
-		if count > limit {
-			c.Ctx.Error("Too Many Requests", fasthttp.StatusTooManyRequests)
-			c.Abort()
-			return
+		// Lazy sweep to prevent OOM
+		if len(clients) > 10000 {
+			for k, v := range clients {
+				if now.After(v.windowEnd) {
+					delete(clients, k)
+				}
+			}
+		}
+
+		data, exists := clients[ip]
+		if !exists || now.After(data.windowEnd) {
+			clients[ip] = &clientData{
+				count:     1,
+				windowEnd: now.Add(window),
+			}
+			mu.Unlock()
+		} else {
+			data.count++
+			count := data.count
+			mu.Unlock()
+			
+			if count > limit {
+				c.Ctx.Error("Too Many Requests", fasthttp.StatusTooManyRequests)
+				c.Abort()
+				return
+			}
 		}
 		c.Next()
 	}
