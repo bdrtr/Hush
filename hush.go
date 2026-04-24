@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
@@ -182,13 +181,13 @@ func (rg *RouterGroup) Static(path, root string) {
 
 // Handler conforms to fasthttp.RequestHandler
 func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
-	method := unsafe.String(unsafe.SliceData(ctx.Method()), len(ctx.Method()))
-	path := ctx.Path() // raw []byte, no string conversion
+	method := string(ctx.Method())
+	path := string(ctx.Path())
 
 	c := contextPool.Get().(*Context)
 	c.reset(ctx, engine)
 
-	node := engine.router.getByte(method, path, c)
+	node := engine.router.get(method, path, c)
 
 	if node != nil {
 		c.handlers = node.handlers
