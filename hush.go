@@ -30,6 +30,8 @@ type Route struct {
 	Tags         []string
 	RequestBody  reflect.Type
 	ResponseBody reflect.Type
+	QueryParams  reflect.Type
+	HeaderParams reflect.Type
 }
 
 // WithSummary adds a summary to the route for OpenAPI
@@ -53,6 +55,18 @@ func WithBody[T any](r *Route) *Route {
 // WithResponse documents the response body type for OpenAPI
 func WithResponse[T any](r *Route) *Route {
 	r.ResponseBody = reflect.TypeOf((*T)(nil)).Elem()
+	return r
+}
+
+// WithQuery documents the query parameters type for OpenAPI
+func WithQuery[T any](r *Route) *Route {
+	r.QueryParams = reflect.TypeOf((*T)(nil)).Elem()
+	return r
+}
+
+// WithHeader documents the header parameters type for OpenAPI
+func WithHeader[T any](r *Route) *Route {
+	r.HeaderParams = reflect.TypeOf((*T)(nil)).Elem()
 	return r
 }
 

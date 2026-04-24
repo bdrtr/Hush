@@ -44,6 +44,19 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 			},
 		}
 
+		var parameters []map[string]interface{}
+		
+		if route.QueryParams != nil {
+			parameters = append(parameters, buildParameters(route.QueryParams, "query")...)
+		}
+		if route.HeaderParams != nil {
+			parameters = append(parameters, buildParameters(route.HeaderParams, "header")...)
+		}
+		
+		if len(parameters) > 0 {
+			op["parameters"] = parameters
+		}
+
 		if route.RequestBody != nil {
 			op["requestBody"] = map[string]interface{}{
 				"content": map[string]interface{}{
@@ -69,6 +82,35 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 	}
 	
 	return spec
+}
+
+// buildParameters extracts OpenAPI parameters from struct tags
+func buildParameters(t reflect.Type, in string) []map[string]interface{} {
+	var params []map[string]interface{}
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return params
+	}
+	
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		
+		tag := field.Tag.Get(in)
+		if tag == "" || tag == "-" {
+			continue
+		}
+		
+		param := map[string]interface{}{
+			"name": tag,
+			"in":   in,
+			"required": strings.Contains(field.Tag.Get("validate"), "required"),
+			"schema": buildSchema(field.Type),
+		}
+		params = append(params, param)
+	}
+	return params
 }
 
 // buildSchema recursively builds an OpenAPI schema from a reflect.Type
