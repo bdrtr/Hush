@@ -1,17 +1,19 @@
 package hush
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/goccy/go-json"
 )
 
-// BindBody reads JSON from request body and parses into type T.
+// BindBody reads JSON from fasthttp request body and parses into type T.
 func BindBody[T any](c *Context) (*T, error) {
 	var obj T
-	decoder := json.NewDecoder(c.Request.Body)
-	if err := decoder.Decode(&obj); err != nil {
+	body := c.Ctx.PostBody()
+	
+	if err := json.Unmarshal(body, &obj); err != nil {
 		return nil, err
 	}
 	
@@ -29,7 +31,7 @@ func BindQuery[T any](c *Context) (*T, error) {
 	val := reflect.ValueOf(&obj).Elem()
 	typ := val.Type()
 	
-	queries := c.Request.URL.Query()
+	args := c.Ctx.QueryArgs()
 	
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)
@@ -38,12 +40,12 @@ func BindQuery[T any](c *Context) (*T, error) {
 			continue
 		}
 		
-		if queryVal := queries.Get(tag); queryVal != "" {
+		queryVal := args.Peek(tag)
+		if len(queryVal) > 0 {
 			if val.Field(i).Kind() == reflect.String {
-				val.Field(i).SetString(queryVal)
+				val.Field(i).SetString(string(queryVal))
 			}
-			// For Phase 1 we only support string query params to keep it simple.
-			// Int, Bool etc parsing would go here.
+			// Extensions for Int, Bool etc. can be added here
 		}
 	}
 	
@@ -80,7 +82,6 @@ func validateStruct(obj interface{}) error {
 						return fmt.Errorf("field %s is required", field.Name)
 					}
 				}
-				// Other rules like min, max, email can be added here
 			}
 		}
 	}

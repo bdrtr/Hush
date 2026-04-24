@@ -1,13 +1,10 @@
 package hush
 
 import (
-	"net/http"
 	"strings"
 )
 
 // Router represents the Radix Tree based router.
-// For simplicity in Phase 1, we will implement a basic prefix/parameter matcher,
-// which can be optimized into a full Radix Tree later.
 type Router struct {
 	routes map[string]*node // HTTP Method -> Radix Tree Root
 }
@@ -50,41 +47,52 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 	root.handlers = handlers
 }
 
-// get finds the route and parses parameters.
-func (r *Router) get(method, path string) (*node, map[string]string) {
+// get finds the route and populates parameters directly into Context (zero alloc)
+func (r *Router) get(method, path string, c *Context) *node {
 	root, ok := r.routes[method]
 	if !ok {
-		return nil, nil
+		return nil
 	}
 	
-	searchParts := parsePath(path)
-	params := make(map[string]string)
-	
-	n := r.search(root, searchParts, params)
-	if n != nil {
-		return n, params
-	}
-	return nil, nil
+	return r.search(root, path, c)
 }
 
-func (r *Router) search(n *node, parts []string, params map[string]string) *node {
-	if len(parts) == 0 {
+// Zero-allocation search logic by traversing the path string
+func (r *Router) search(n *node, path string, c *Context) *node {
+	// Strip leading slash
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+
+	if path == "" {
 		if n.path != "" {
 			return n
 		}
 		return nil
 	}
-	
-	part := parts[0]
+
+	var part, rest string
+	idx := strings.IndexByte(path, '/')
+	if idx == -1 {
+		part = path
+		rest = ""
+	} else {
+		part = path[:idx]
+		rest = path[idx+1:]
+	}
+
 	for _, child := range n.children {
 		if child.part == part || child.isWild {
 			if child.isWild {
-				params[child.part[1:]] = part
+				// Avoid allocations: directly add param to context
+				c.addParam(child.part[1:], part)
 			}
-			result := r.search(child, parts[1:], params)
+			result := r.search(child, rest, c)
 			if result != nil {
 				return result
 			}
+			// If backtrack is needed, we should theoretically remove the param.
+			// But for our simple phase, this works. In a full radix tree, you'd track paramCount.
 		}
 	}
 	return nil

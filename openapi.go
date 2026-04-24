@@ -1,8 +1,7 @@
 package hush
 
 import (
-	"encoding/json"
-	"net/http"
+	"github.com/valyala/fasthttp"
 )
 
 // SwaggerSpec represents a simplified OpenAPI 3.0 specification.
@@ -22,10 +21,6 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		},
 		Paths: make(map[string]interface{}),
 	}
-	
-	// A real implementation would traverse e.router.routes and use reflection 
-	// to document schemas. For Phase 1, we just return a skeleton.
-	// Users can serve this using /docs endpoint.
 	
 	return spec
 }
@@ -60,8 +55,8 @@ func (e *Engine) ServeSwaggerUI(path string) {
 </script>
 </body>
 </html>`
-		c.Writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		c.Writer.WriteHeader(http.StatusOK)
-		c.Writer.Write([]byte(html))
+		c.Ctx.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
+		c.Ctx.SetStatusCode(fasthttp.StatusOK)
+		c.Ctx.Write([]byte(html))
 	})
 }

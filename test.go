@@ -1,22 +1,17 @@
 package hush
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"github.com/valyala/fasthttp"
 )
 
-// NewTestServer creates an in-memory httptest.Server using the Engine.
-func NewTestServer(e *Engine) *httptest.Server {
-	return httptest.NewServer(e)
-}
-
 // NewTestContext creates a mock Context for isolated handler unit testing.
-func NewTestContext(method, path string) (*Context, *httptest.ResponseRecorder) {
-	req := httptest.NewRequest(method, path, nil)
-	w := httptest.NewRecorder()
+func NewTestContext(method, path string) *Context {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod(method)
+	ctx.Request.SetRequestURI(path)
 	
 	c := contextPool.Get().(*Context)
-	c.reset(w, req, nil)
+	c.reset(ctx, nil)
 	
-	return c, w
+	return c
 }
