@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"mime/multipart"
 	"reflect"
+	"sync"
 
 	"github.com/bytedance/sonic"
 	"github.com/fasthttp/websocket"
@@ -17,6 +18,12 @@ type HandlerFunc func(*Context)
 type Param struct {
 	Key   string
 	Value string
+}
+
+var contextPool = sync.Pool{
+	New: func() interface{} {
+		return &Context{}
+	},
 }
 
 // Context holds the fasthttp request context and routing parameters.
