@@ -19,10 +19,12 @@ type Engine struct {
 
 // Route represents a registered route and its metadata for OpenAPI
 type Route struct {
-	Method  string
-	Path    string
-	Summary string
-	Tags    []string
+	Method       string
+	Path         string
+	Summary      string
+	Tags         []string
+	RequestBody  reflect.Type
+	ResponseBody reflect.Type
 }
 
 // WithSummary adds a summary to the route for OpenAPI
@@ -34,6 +36,18 @@ func (r *Route) WithSummary(summary string) *Route {
 // WithTags adds tags to the route for OpenAPI
 func (r *Route) WithTags(tags ...string) *Route {
 	r.Tags = append(r.Tags, tags...)
+	return r
+}
+
+// WithBody documents the request body type for OpenAPI
+func WithBody[T any](r *Route) *Route {
+	r.RequestBody = reflect.TypeOf((*T)(nil)).Elem()
+	return r
+}
+
+// WithResponse documents the response body type for OpenAPI
+func WithResponse[T any](r *Route) *Route {
+	r.ResponseBody = reflect.TypeOf((*T)(nil)).Elem()
 	return r
 }
 

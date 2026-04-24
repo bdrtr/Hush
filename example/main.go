@@ -15,6 +15,11 @@ type LocationRequest struct {
 	Lon    float64 `json:"lon" validate:"required"`
 }
 
+type GenericResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
 func Logger() hush.HandlerFunc {
 	return func(c *hush.Context) {
 		fmt.Printf("[LOG] %s %s\n", c.Ctx.Method(), c.Ctx.Path())
@@ -25,66 +30,54 @@ func Logger() hush.HandlerFunc {
 func main() {
 	app := hush.New()
 	
-	// Phase 4: Essence DB Dependency Injection
-	// (Note: To compile this, the Rust Essence core must be built in heartbeat-project)
 	db := essence.New()
 	defer db.Close()
 	hush.Provide[*essence.EssenceDB](app, db)
 	
-	// Serve Swagger UI at /docs
 	app.ServeSwaggerUI("/docs")
 
-	// Global Middlewares
 	app.Use(middleware.Helmet())
 	app.Use(middleware.RequestID())
 	app.Use(middleware.CORS("*"))
+	app.Use(middleware.RateLimit(100, 60)) // 100 requests per minute
 	app.Use(Logger())
 
-	// Static File Serving
-	app.Static("/assets", "./public")
-
-	// Basic route
 	app.GET("/ping", func(c *hush.Context) {
-		reqID, _ := c.Get("request_id")
-		c.Ok(map[string]interface{}{
-			"message": "pong",
-			"req_id":  reqID,
-		})
-	})
+		c.Ok(map[string]string{"message": "pong"})
+	}).WithSummary("Health check endpoint").WithTags("System")
 
-	// Spatial API Group
 	geo := app.Group("/geo")
 	
-	geo.POST("/update", func(c *hush.Context) {
-		req, err := hush.BindBody[LocationRequest](c)
-		if err != nil {
-			c.BadRequest(err.Error())
-			return
-		}
-		
-		db := hush.Inject[*essence.EssenceDB](c)
-		if db != nil {
-			db.UpdateLocation(req.UserID, req.Lat, req.Lon, 10.0) // 10.0 alt
-		}
-		
-		c.Ok(map[string]string{"status": "Location updated"})
-	})
+	hush.WithBody[LocationRequest](
+		geo.POST("/update", func(c *hush.Context) {
+			req, err := hush.BindBody[LocationRequest](c)
+			if err != nil {
+				c.BadRequest(err.Error())
+				return
+			}
+			
+			db := hush.Inject[*essence.EssenceDB](c)
+			if db != nil {
+				db.UpdateLocation(req.UserID, req.Lat, req.Lon, 10.0)
+			}
+			
+			c.Ok(GenericResponse{Status: "success", Message: "Location updated"})
+		}).WithSummary("Update user location").WithTags("Geo"),
+	).WithResponse[GenericResponse]()
 	
 	geo.GET("/nearby/:user_id", func(c *hush.Context) {
 		userID := c.Param("user_id")
-		
 		db := hush.Inject[*essence.EssenceDB](c)
 		var matches []essence.Match
 		if db != nil {
-			matches = db.GetNearbyUsers(userID, 5.0, 10) // 5km radius, max 10
+			matches = db.GetNearbyUsers(userID, 5.0, 10)
 		}
-		
 		c.Ok(map[string]interface{}{
 			"user_id": userID,
 			"matches": matches,
 		})
-	})
+	}).WithSummary("Get nearby users").WithTags("Geo")
 
-	log.Println("Fasthttp Server running on http://localhost:8080")
+	log.Println("Hush (Fasthttp) running on http://localhost:8080")
 	log.Fatal(app.Run(":8080"))
 }

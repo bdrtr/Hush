@@ -1,14 +1,18 @@
 package hush
 
 import (
+	"reflect"
+	"strings"
+
 	"github.com/valyala/fasthttp"
 )
 
 // SwaggerSpec represents a simplified OpenAPI 3.0 specification.
 type SwaggerSpec struct {
-	OpenAPI string                 `json:"openapi"`
-	Info    map[string]string      `json:"info"`
-	Paths   map[string]interface{} `json:"paths"`
+	OpenAPI    string                 `json:"openapi"`
+	Info       map[string]string      `json:"info"`
+	Paths      map[string]interface{} `json:"paths"`
+	Components map[string]interface{} `json:"components,omitempty"`
 }
 
 // GenerateOpenAPI creates a basic swagger.json
@@ -30,7 +34,7 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		pathItem := spec.Paths[route.Path].(map[string]interface{})
 		methodLower := strings.ToLower(route.Method)
 		
-		pathItem[methodLower] = map[string]interface{}{
+		op := map[string]interface{}{
 			"summary": route.Summary,
 			"tags":    route.Tags,
 			"responses": map[string]interface{}{
@@ -39,9 +43,74 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 				},
 			},
 		}
+
+		if route.RequestBody != nil {
+			op["requestBody"] = map[string]interface{}{
+				"content": map[string]interface{}{
+					"application/json": map[string]interface{}{
+						"schema": buildSchema(route.RequestBody),
+					},
+				},
+			}
+		}
+
+		if route.ResponseBody != nil {
+			op["responses"].(map[string]interface{})["200"] = map[string]interface{}{
+				"description": "Successful Response",
+				"content": map[string]interface{}{
+					"application/json": map[string]interface{}{
+						"schema": buildSchema(route.ResponseBody),
+					},
+				},
+			}
+		}
+		
+		pathItem[methodLower] = op
 	}
 	
 	return spec
+}
+
+// buildSchema recursively builds an OpenAPI schema from a reflect.Type
+func buildSchema(t reflect.Type) map[string]interface{} {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	schema := make(map[string]interface{})
+
+	switch t.Kind() {
+	case reflect.Struct:
+		schema["type"] = "object"
+		properties := make(map[string]interface{})
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			jsonTag := field.Tag.Get("json")
+			if jsonTag == "" || jsonTag == "-" {
+				jsonTag = field.Name
+			} else {
+				jsonTag = strings.Split(jsonTag, ",")[0]
+			}
+			properties[jsonTag] = buildSchema(field.Type)
+		}
+		schema["properties"] = properties
+	case reflect.Slice, reflect.Array:
+		schema["type"] = "array"
+		schema["items"] = buildSchema(t.Elem())
+	case reflect.String:
+		schema["type"] = "string"
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		schema["type"] = "integer"
+	case reflect.Float32, reflect.Float64:
+		schema["type"] = "number"
+	case reflect.Bool:
+		schema["type"] = "boolean"
+	default:
+		schema["type"] = "string" // fallback
+	}
+
+	return schema
 }
 
 // ServeSwaggerUI serves the swagger.json and a basic UI.
@@ -49,7 +118,7 @@ func (e *Engine) ServeSwaggerUI(path string) {
 	e.GET(path+"/swagger.json", func(c *Context) {
 		spec := e.GenerateOpenAPI()
 		c.Ok(spec)
-	})
+	}).WithSummary("Serve OpenAPI Specification")
 	
 	e.GET(path, func(c *Context) {
 		html := `<!DOCTYPE html>
@@ -77,5 +146,5 @@ func (e *Engine) ServeSwaggerUI(path string) {
 		c.Ctx.Response.Header.Set("Content-Type", "text/html; charset=utf-8")
 		c.Ctx.SetStatusCode(fasthttp.StatusOK)
 		c.Ctx.Write([]byte(html))
-	})
+	}).WithSummary("Serve Swagger UI")
 }
