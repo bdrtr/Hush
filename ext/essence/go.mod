@@ -1,3 +1,3 @@
-module github.com/bedir/hush/ext/essence
+module github.com/bdrtr/hush/ext/essence
 
 go 1.22
