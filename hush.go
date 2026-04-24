@@ -320,6 +320,8 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
+		log.Printf("Shutdown timeout reached. Force closing connections...")
+		_ = engine.server.Close() // Forcefully drop remaining connections
 		return ctx.Err()
 	}
 }
