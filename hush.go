@@ -116,6 +116,21 @@ func (rg *RouterGroup) POST(path string, handlers ...HandlerFunc) *Route {
 	return rg.addRoute(fasthttp.MethodPost, path, handlers)
 }
 
+// PUT registers a PUT route and returns a Route object for building options.
+func (rg *RouterGroup) PUT(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodPut, path, handlers)
+}
+
+// PATCH registers a PATCH route and returns a Route object for building options.
+func (rg *RouterGroup) PATCH(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodPatch, path, handlers)
+}
+
+// DELETE registers a DELETE route and returns a Route object for building options.
+func (rg *RouterGroup) DELETE(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodDelete, path, handlers)
+}
+
 // Static serves static files from the given root directory.
 func (rg *RouterGroup) Static(path, root string) {
 	handler := func(c *Context) {
@@ -167,10 +182,21 @@ func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 
 // Shutdown gracefully shuts down the server.
 func (engine *Engine) Shutdown(ctx context.Context) error {
-	if engine.server != nil {
-		return engine.server.Shutdown()
+	if engine.server == nil {
+		return nil
 	}
-	return nil
+	
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- engine.server.Shutdown()
+	}()
+	
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Test Run function to mock listener for testing

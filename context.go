@@ -1,6 +1,7 @@
 package hush
 
 import (
+	"mime/multipart"
 	"reflect"
 
 	"github.com/goccy/go-json"
@@ -108,15 +109,31 @@ func (c *Context) addParam(key, value string) {
 	}
 }
 
+// Query returns the value of the given URL query parameter.
+func (c *Context) Query(key string) string {
+	return string(c.Ctx.QueryArgs().Peek(key))
+}
+
+// FormValue returns the value of the given form field.
+func (c *Context) FormValue(key string) string {
+	return string(c.Ctx.FormValue(key))
+}
+
+// FormFile returns the uploaded file by key.
+func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
+	return c.Ctx.FormFile(key)
+}
+
 // JSON sends a JSON response with the given status code using fast goccy/go-json.
 func (c *Context) JSON(code int, obj interface{}) {
 	c.Ctx.SetContentType("application/json")
 	c.Ctx.SetStatusCode(code)
-	
-	encoder := json.NewEncoder(c.Ctx)
-	if err := encoder.Encode(obj); err != nil {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
 		c.Ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+		return
 	}
+	c.Ctx.Write(bytes)
 }
 
 // Ok sends a 200 OK JSON response.

@@ -37,7 +37,7 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 		if child == nil {
 			child = &node{
 				part:   part,
-				isWild: strings.HasPrefix(part, ":"),
+				isWild: strings.HasPrefix(part, ":") || strings.HasPrefix(part, "*"),
 			}
 			root.children = append(root.children, child)
 		}
@@ -83,16 +83,25 @@ func (r *Router) search(n *node, path string, c *Context) *node {
 
 	for _, child := range n.children {
 		if child.part == part || child.isWild {
+			initialParamCount := c.paramCount
 			if child.isWild {
-				// Avoid allocations: directly add param to context
+				if strings.HasPrefix(child.part, "*") {
+					// Catch-all: consume the rest of the path entirely
+					c.addParam(child.part[1:], path)
+					if child.handlers != nil {
+						return child
+					}
+					return nil
+				}
+				// Normal parameter: avoid allocations
 				c.addParam(child.part[1:], part)
 			}
 			result := r.search(child, rest, c)
 			if result != nil {
 				return result
 			}
-			// If backtrack is needed, we should theoretically remove the param.
-			// But for our simple phase, this works. In a full radix tree, you'd track paramCount.
+			// Backtrack: restore param count if search down this path failed
+			c.paramCount = initialParamCount
 		}
 	}
 	return nil

@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"sync"
 	"time"
 
@@ -22,6 +23,30 @@ func CORS(allowOrigins string) hush.HandlerFunc {
 			return
 		}
 		
+		c.Next()
+	}
+}
+
+// Logger logs the details of each request including method, path, status, and duration.
+func Logger() hush.HandlerFunc {
+	return func(c *hush.Context) {
+		start := time.Now()
+		c.Next()
+		duration := time.Since(start)
+		
+		log.Printf("[%s] %s | Status: %d | %v", c.Ctx.Method(), c.Ctx.Path(), c.Ctx.Response.StatusCode(), duration)
+	}
+}
+
+// Recovery catches any panics during request handling and returns a 500 error gracefully.
+func Recovery() hush.HandlerFunc {
+	return func(c *hush.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("[Recovery] panic recovered: %v", err)
+				c.AbortWithStatus(fasthttp.StatusInternalServerError)
+			}
+		}()
 		c.Next()
 	}
 }

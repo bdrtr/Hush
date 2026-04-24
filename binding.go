@@ -3,8 +3,8 @@ package hush
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-json"
 )
 
@@ -56,34 +56,9 @@ func BindQuery[T any](c *Context) (*T, error) {
 	return &obj, nil
 }
 
-// validateStruct uses reflection to enforce basic validation tags like "required".
+var validate = validator.New()
+
+// validateStruct uses go-playground/validator/v10 to enforce advanced validation rules.
 func validateStruct(obj interface{}) error {
-	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
-	}
-	
-	if val.Kind() != reflect.Struct {
-		return nil
-	}
-	
-	typ := val.Type()
-	for i := 0; i < val.NumField(); i++ {
-		field := typ.Field(i)
-		tag := field.Tag.Get("validate")
-		
-		if tag != "" {
-			rules := strings.Split(tag, ",")
-			fieldVal := val.Field(i)
-			
-			for _, rule := range rules {
-				if rule == "required" {
-					if fieldVal.IsZero() {
-						return fmt.Errorf("field %s is required", field.Name)
-					}
-				}
-			}
-		}
-	}
-	return nil
+	return validate.Struct(obj)
 }
