@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/bdrtr/hush"
-	"github.com/bdrtr/hush/ext/essence"
 	"github.com/bdrtr/hush/middleware"
 )
 
@@ -30,10 +29,6 @@ func Logger() hush.HandlerFunc {
 func main() {
 	app := hush.New()
 	
-	db := essence.New()
-	defer db.Close()
-	hush.Provide[*essence.EssenceDB](app, db)
-	
 	app.ServeSwaggerUI("/docs")
 
 	app.Use(middleware.Helmet())
@@ -56,10 +51,8 @@ func main() {
 				return
 			}
 			
-			db := hush.Inject[*essence.EssenceDB](c)
-			if db != nil {
-				db.UpdateLocation(req.UserID, req.Lat, req.Lon, 10.0)
-			}
+			// Mock DB save
+			fmt.Printf("Saving location for user %s: %f, %f\n", req.UserID, req.Lat, req.Lon)
 			
 			c.Ok(GenericResponse{Status: "success", Message: "Location updated"})
 		}).WithSummary("Update user location").WithTags("Geo"),
@@ -67,14 +60,11 @@ func main() {
 	
 	geo.GET("/nearby/:user_id", func(c *hush.Context) {
 		userID := c.Param("user_id")
-		db := hush.Inject[*essence.EssenceDB](c)
-		var matches []essence.Match
-		if db != nil {
-			matches = db.GetNearbyUsers(userID, 5.0, 10)
-		}
+		
+		// Mock Data
 		c.Ok(map[string]interface{}{
 			"user_id": userID,
-			"matches": matches,
+			"matches": []string{"User2", "User3"},
 		})
 	}).WithSummary("Get nearby users").WithTags("Geo")
 

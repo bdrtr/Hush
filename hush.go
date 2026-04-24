@@ -131,16 +131,21 @@ func (rg *RouterGroup) DELETE(path string, handlers ...HandlerFunc) *Route {
 	return rg.addRoute(fasthttp.MethodDelete, path, handlers)
 }
 
-// Static serves static files from the given root directory.
+// Static serves static files from the given root directory securely.
 func (rg *RouterGroup) Static(path, root string) {
-	handler := func(c *Context) {
-		filepath := c.Param("filepath")
-		if filepath == "" {
-			filepath = "/"
-		}
-		fasthttp.ServeFile(c.Ctx, root+filepath)
+	fs := &fasthttp.FS{
+		Root:               root,
+		IndexNames:         []string{"index.html"},
+		GenerateIndexPages: false,
+		Compress:           true,
+		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
 	}
-	rg.GET(path+"/:filepath", handler)
+	fsHandler := fs.NewRequestHandler()
+
+	handler := func(c *Context) {
+		fsHandler(c.Ctx)
+	}
+	rg.GET(path+"/*filepath", handler)
 	rg.GET(path, handler)
 }
 
