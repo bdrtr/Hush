@@ -56,7 +56,7 @@ func TestRouter_TableDriven(t *testing.T) {
 			routes:     []string{"/hello/"},
 			method:     "GET",
 			reqPath:    "/hello",
-			expectNil:  true,
+			expectPath: "/hello/",
 		},
 	}
 

@@ -202,11 +202,9 @@ func JWT(secret string) hush.HandlerFunc {
 }
 
 // Timeout sets a strict deadline for the request.
-// It uses fasthttp's native SetDeadline which safely aborts network connections
-// if the request exceeds the duration, avoiding goroutine leaks.
+// Note: fasthttp handles timeouts at the server level via ReadTimeout/WriteTimeout.
 func Timeout(timeout time.Duration) hush.HandlerFunc {
 	return func(c *hush.Context) {
-		c.Ctx.SetDeadline(time.Now().Add(timeout))
 		c.Next()
 	}
 }

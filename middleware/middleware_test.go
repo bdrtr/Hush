@@ -131,7 +131,7 @@ func TestJWTMiddleware(t *testing.T) {
 	secret := "test-secret"
 	app := hush.New()
 	
-	app.GET("/protected", middleware.JWTAuth(secret), func(c *hush.Context) {
+	app.GET("/protected", middleware.JWT(secret), func(c *hush.Context) {
 		c.Ok("secret data")
 	})
 

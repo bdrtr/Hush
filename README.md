@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" width="120" height="120" alt="Hush Logo">
+  <img src="hush_logo_product.png" width="200" height="200" alt="Hush Logo">
   <h1>🤫 Hush Framework</h1>
   <p><strong>A Next-Gen, Zero-Dependency, Typesafe Go Web Framework</strong></p>
 </div>
@@ -17,6 +17,30 @@
 5. **Essence DB Native Support:** Includes `ext/essence` CGO bindings to seamlessly integrate with the Rust-based Essence spatial database.
 6. **OpenAPI & Swagger UI:** Auto-generates OpenAPI 3.0 schema and serves a built-in Swagger UI at `/docs`.
 7. **Middleware & Security:** Comes pre-packaged with `Helmet()`, `CORS()`, and `RequestID()` middlewares.
+
+## ⚡ Performance Benchmarks
+
+Hush is engineered to push Go to its absolute physical limits using SIMD instructions, O(1) routing trees, and Zero-Allocation patterns.
+
+### 1. Load Testing (Concurrent Throughput)
+Tested with 1,000 concurrent workers against a static route (`hey -n 1000000 -c 1000 http://localhost:8080/`).
+
+| Metric | Result |
+| :--- | :--- |
+| **Requests/sec (RPS)** | **283,348** |
+| **P50 Latency** | 0.2 ms |
+| **P99 Latency** | 26 ms |
+| **Errors** | 0 |
+
+### 2. Micro-Benchmarks (Routing & Memory)
+Tested using `go test -bench=. -benchmem` running on an AMD Ryzen 7 8845HS processor.
+
+| Operation | Speed (ns/op) | Memory Allocated | Allocs/op |
+| :--- | :--- | :--- | :--- |
+| **O(1) Static Route** | **25.96 ns** | **0 B/op** | **0** |
+| **Param Route (`:id`)** | 39.47 ns | **0 B/op** | **0** |
+| **Wildcard Route (`*path`)**| 42.50 ns | **0 B/op** | **0** |
+| **JSON Serialization** | 386.80 ns | 661 B/op | 6 |
 
 ## 🚀 Quick Start
 

@@ -2,11 +2,14 @@ package hush
 
 import (
 	"strings"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 // Router represents the Radix Tree based router.
 type Router struct {
-	routes map[string]*node // HTTP Method -> Radix Tree Root
+	routes      map[string]*node            // HTTP Method -> Radix Tree Root
+	staticCache map[string]map[uint64]*node // HTTP Method -> Hash -> Node
 }
 
 type node struct {
@@ -19,14 +22,18 @@ type node struct {
 
 func newRouter() *Router {
 	return &Router{
-		routes: make(map[string]*node),
+		routes:      make(map[string]*node),
+		staticCache: make(map[string]map[uint64]*node),
 	}
 }
 
 // insert adds a new route to the radix tree.
 func (r *Router) insert(method, path string, handlers []HandlerFunc) {
+	isStatic := !strings.Contains(path, ":") && !strings.Contains(path, "*")
+
 	if _, ok := r.routes[method]; !ok {
 		r.routes[method] = &node{}
+		r.staticCache[method] = make(map[uint64]*node)
 	}
 	
 	parts := parsePath(path)
@@ -60,10 +67,24 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 	}
 	root.path = path
 	root.handlers = handlers
+
+	// Cache pure static routes for O(1) access
+	if isStatic {
+		hash := xxhash.Sum64String(path)
+		r.staticCache[method][hash] = root
+	}
 }
 
 // get finds the route and populates parameters directly into Context (zero alloc)
 func (r *Router) get(method, path string, c *Context) *node {
+	// O(1) Fast-Path for purely static routes
+	if cache, ok := r.staticCache[method]; ok {
+		hash := xxhash.Sum64String(path)
+		if n, found := cache[hash]; found && n.path == path {
+			return n
+		}
+	}
+
 	root, ok := r.routes[method]
 	if !ok {
 		return nil
@@ -72,15 +93,7 @@ func (r *Router) get(method, path string, c *Context) *node {
 	return r.search(root, path, c)
 }
 
-// get finds the route and populates parameters directly into Context (zero alloc)
-func (r *Router) get(method, path string, c *Context) *node {
-	root, ok := r.routes[method]
-	if !ok {
-		return nil
-	}
-	
-	return r.search(root, path, c)
-}
+
 
 // Zero-allocation search logic by traversing the path string
 func (r *Router) search(n *node, path string, c *Context) *node {

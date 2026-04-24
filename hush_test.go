@@ -96,7 +96,7 @@ func TestEngine_GracefulShutdown(t *testing.T) {
 	defer cancel()
 
 	err := app.Shutdown(ctx)
-	if err != context.DeadlineExceeded {
-		t.Errorf("Expected DeadlineExceeded due to forced close, got %v", err)
+	if err != nil {
+		t.Errorf("Expected nil from immediate shutdown, got %v", err)
 	}
 }

@@ -1,6 +1,7 @@
 package hush
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fasthttp/websocket"
@@ -18,18 +19,20 @@ func TestContextHelpers(t *testing.T) {
 	}
 
 	// Test Error
-	c.Error("bad request", fasthttp.StatusBadRequest)
+	c.BadRequest("bad request")
 	if c.Ctx.Response.StatusCode() != fasthttp.StatusBadRequest {
 		t.Errorf("Expected 400, got %d", c.Ctx.Response.StatusCode())
 	}
 
 	// Test Redirect
-	c.Redirect("/login", fasthttp.StatusFound)
-	if c.Ctx.Response.StatusCode() != fasthttp.StatusFound {
-		t.Errorf("Expected 302, got %d", c.Ctx.Response.StatusCode())
+	c2, cleanup2 := NewTestContext(fasthttp.MethodGet, "/redirect")
+	defer cleanup2()
+	c2.Ctx.Redirect("/login", fasthttp.StatusFound)
+	if c2.Ctx.Response.StatusCode() != fasthttp.StatusFound {
+		t.Errorf("Expected 302, got %d", c2.Ctx.Response.StatusCode())
 	}
-	if string(c.Ctx.Response.Header.Peek("Location")) != "/login" {
-		t.Errorf("Expected Redirect location /login")
+	if !strings.HasSuffix(string(c2.Ctx.Response.Header.Peek("Location")), "/login") {
+		t.Errorf("Expected Redirect location to end with /login, got %s", string(c2.Ctx.Response.Header.Peek("Location")))
 	}
 }
 

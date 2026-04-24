@@ -1,7 +1,6 @@
 package hush
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/valyala/fasthttp"

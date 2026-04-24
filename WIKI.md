@@ -9,6 +9,7 @@ Welcome to the comprehensive guide for the Hush Framework!
 4. [Dependency Injection (DI)](#dependency-injection-di)
 5. [Testing Utilities](#testing-utilities)
 6. [OpenAPI & Swagger](#openapi--swagger)
+7. [Extreme Optimizations](#extreme-optimizations)
 
 ---
 
@@ -148,3 +149,27 @@ Hush generates OpenAPI 3.0 specification automatically. To serve the Swagger UI,
 app.ServeSwaggerUI("/docs")
 ```
 Navigate to `http://localhost:8080/docs` in your browser.
+
+---
+
+## Extreme Optimizations
+
+Hush provides out-of-the-box features to push your application's performance to the absolute physical limits of your server by minimizing Garbage Collector (GC) pressure and bypassing traditional router tree traversals.
+
+### 1. O(1) Static Routing (Zero Allocation)
+You don't need to do anything to enable this. Hush automatically detects routes without parameters (`:id` or `*path`) and registers them in an O(1) hash map using `cespare/xxhash/v2`. This completely bypasses the Radix tree routing logic, matching static paths in ~25ns with exactly **0 Bytes** of memory allocation.
+
+### 2. GOMEMLIMIT (Soft Memory Limit)
+In Go 1.19+, you can set a soft memory limit. This instructs the Go GC to stay asleep until the memory usage approaches your defined limit. By keeping the GC asleep, you eliminate P99 latency spikes and micro-pauses under high concurrent load.
+
+```go
+func main() {
+    // Tell Hush to configure a 512MB Soft Memory Limit
+    app := hush.New(
+        hush.WithSoftMemoryLimit(512 * 1024 * 1024),
+    )
+    
+    // ...
+}
+```
+**Warning:** Ensure your physical server or container has enough RAM to comfortably hold this limit. If your application exceeds the physical RAM, the operating system's OOM killer will terminate the process.

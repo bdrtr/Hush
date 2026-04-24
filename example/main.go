@@ -43,21 +43,21 @@ func main() {
 
 	geo := app.Group("/geo")
 	
-	hush.WithBody[LocationRequest](
-		geo.POST("/update", func(c *hush.Context) {
-			req, err := hush.BindBody[LocationRequest](c)
-			if err != nil {
-				c.BadRequest(err.Error())
-				return
-			}
-			
-			// Mock DB save
-			fmt.Printf("Saving location for user %s: %f, %f\n", req.UserID, req.Lat, req.Lon)
-			
-			c.Ok(GenericResponse{Status: "success", Message: "Location updated"})
-		}).WithSummary("Update user location").WithTags("Geo"),
-	).WithResponse[GenericResponse]()
+	route := geo.POST("/update", func(c *hush.Context) {
+		req, err := hush.BindBody[LocationRequest](c)
+		if err != nil {
+			c.BadRequest(err.Error())
+			return
+		}
+		
+		// Mock DB save
+		fmt.Printf("Saving location for user %s: %f, %f\n", req.UserID, req.Lat, req.Lon)
+		
+		c.Ok(GenericResponse{Status: "success", Message: "Location updated"})
+	}).WithSummary("Update user location").WithTags("Geo")
 	
+	hush.WithBody[LocationRequest](route)
+	hush.WithResponse[GenericResponse](route)
 	geo.GET("/nearby/:user_id", func(c *hush.Context) {
 		userID := c.Param("user_id")
 		

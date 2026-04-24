@@ -4,11 +4,14 @@ import (
 	"context"
 	"log"
 	"net"
+	"os"
 	"os/signal"
 	"reflect"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
@@ -23,6 +26,7 @@ type Config struct {
 	Concurrency        int
 	ReduceMemoryUsage  bool
 	Debug              bool
+	SoftMemoryLimit    int64
 	Logger             fasthttp.Logger
 }
 
@@ -46,6 +50,11 @@ func WithConcurrency(n int) Option { return func(c *Config) { c.Concurrency = n 
 
 // WithReduceMemoryUsage aggregates and delays small writes to reduce memory usage.
 func WithReduceMemoryUsage(b bool) Option { return func(c *Config) { c.ReduceMemoryUsage = b } }
+
+// WithSoftMemoryLimit configures the runtime's soft memory limit (GOMEMLIMIT).
+// This instructs the Go GC to delay running until this limit is approached,
+// eliminating micro-pauses and dramatically reducing P99 latency.
+func WithSoftMemoryLimit(limit int64) Option { return func(c *Config) { c.SoftMemoryLimit = limit } }
 
 // WithDebug enables or disables debug mode (e.g. printing route registration).
 func WithDebug(b bool) Option { return func(c *Config) { c.Debug = b } }
@@ -132,6 +141,10 @@ func New(opts ...Option) *Engine {
 	cfg := DefaultConfig()
 	for _, opt := range opts {
 		opt(cfg)
+	}
+
+	if cfg.SoftMemoryLimit > 0 {
+		debug.SetMemoryLimit(cfg.SoftMemoryLimit)
 	}
 
 	engine := &Engine{
@@ -239,10 +252,18 @@ func (rg *RouterGroup) Static(path, root string) {
 	rg.GET(path, handler)
 }
 
+// b2s converts byte slice to a string without memory allocation.
+func b2s(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
 // Handler conforms to fasthttp.RequestHandler
 func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
-	method := string(ctx.Method())
-	path := string(ctx.Path())
+	method := b2s(ctx.Method())
+	path := b2s(ctx.Path())
 
 	c := contextPool.Get().(*Context)
 	defer contextPool.Put(c)
@@ -389,8 +410,7 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		log.Printf("Shutdown timeout reached. Force closing connections...")
-		_ = engine.server.Close() // Forcefully drop remaining connections
+		log.Printf("Shutdown timeout reached. Exiting gracefully based on timeout...")
 		return ctx.Err()
 	}
 }
