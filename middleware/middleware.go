@@ -15,10 +15,15 @@ import (
 )
 
 // CORS returns a middleware that handles Cross-Origin Resource Sharing.
-func CORS(allowOrigins string) hush.HandlerFunc {
+func CORS(allowOrigins string, allowMethods ...string) hush.HandlerFunc {
+	methods := "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS"
+	if len(allowMethods) > 0 && allowMethods[0] != "" {
+		methods = allowMethods[0]
+	}
+	
 	return func(c *hush.Context) {
 		c.Ctx.Response.Header.Set("Access-Control-Allow-Origin", allowOrigins)
-		c.Ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Ctx.Response.Header.Set("Access-Control-Allow-Methods", methods)
 		c.Ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 
 		if string(c.Ctx.Method()) == fasthttp.MethodOptions {
