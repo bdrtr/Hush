@@ -196,8 +196,16 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	contextPool.Put(c)
 }
 
+// PrintRoutes logs all registered routes to the terminal, similar to Gin's debug mode.
+func (engine *Engine) PrintRoutes() {
+	for _, route := range engine.routes {
+		log.Printf("[HUSH] %-7s %s", route.Method, route.Path)
+	}
+}
+
 // Run starts the fasthttp server and listens for OS signals for graceful shutdown.
 func (engine *Engine) Run(addr string) error {
+	engine.PrintRoutes()
 	engine.server = &fasthttp.Server{
 		Handler: engine.Handler,
 	}
@@ -223,6 +231,7 @@ func (engine *Engine) Run(addr string) error {
 
 // RunTLS starts an HTTPS server and listens for OS signals for graceful shutdown.
 func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
+	engine.PrintRoutes()
 	engine.server = &fasthttp.Server{
 		Handler: engine.Handler,
 	}
@@ -267,6 +276,7 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 
 // Test Run function to mock listener for testing
 func (engine *Engine) Serve(ln net.Listener) error {
+	engine.PrintRoutes()
     engine.server = &fasthttp.Server{
 		Handler: engine.Handler,
 	}

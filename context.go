@@ -63,6 +63,11 @@ func (c *Context) AbortWithJSON(code int, obj interface{}) {
 	c.JSON(code, obj)
 }
 
+// AbortWithError calls Abort and writes the error message as a JSON response.
+func (c *Context) AbortWithError(code int, err error) {
+	c.AbortWithJSON(code, map[string]string{"error": err.Error()})
+}
+
 // Set stores a value for this request inside fasthttp's native UserValue storage.
 func (c *Context) Set(key string, value interface{}) {
 	c.Ctx.SetUserValue(key, value)
