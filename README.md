@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="logo.png" width="120" height="120" alt="Hush Logo">
   <h1>🤫 Hush Framework</h1>
   <p><strong>A Next-Gen, Zero-Dependency, Typesafe Go Web Framework</strong></p>
 </div>
