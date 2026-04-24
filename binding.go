@@ -1,6 +1,8 @@
 package hush
 
 import (
+	"bytes"
+	"fmt"
 	"reflect"
 
 	"github.com/bytedance/sonic"
@@ -11,14 +13,27 @@ import (
 // BindBody reads JSON from fasthttp request body and parses into type T.
 func BindBody[T any](c *Context) (*T, error) {
 	var obj T
-	body := c.Ctx.Request.Body()
 	
-	if len(body) > 0 {
-		if err := sonic.Unmarshal(body, &obj); err != nil {
-			c.Ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
-			c.Abort()
-			return &obj, err
-		}
+	contentType := c.Ctx.Request.Header.Peek("Content-Type")
+	if !bytes.HasPrefix(contentType, []byte("application/json")) {
+		err := fmt.Errorf("unsupported content type: expected application/json")
+		c.Ctx.Error(err.Error(), fasthttp.StatusUnsupportedMediaType)
+		c.Abort()
+		return nil, err
+	}
+
+	body := c.Ctx.Request.Body()
+	if len(body) == 0 {
+		err := fmt.Errorf("request body cannot be empty")
+		c.Ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		c.Abort()
+		return nil, err
+	}
+	
+	if err := sonic.Unmarshal(body, &obj); err != nil {
+		c.Ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
+		c.Abort()
+		return &obj, err
 	}
 	
 	if err := validateStruct(&obj); err != nil {
