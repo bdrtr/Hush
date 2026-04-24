@@ -1,7 +1,6 @@
 package hush
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/go-playground/validator/v10"

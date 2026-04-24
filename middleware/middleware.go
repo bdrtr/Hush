@@ -80,29 +80,28 @@ func Helmet() hush.HandlerFunc {
 	}
 }
 
-// RateLimit implements a simple fixed-window rate limiter.
+// RateLimit implements a simple fixed-window rate limiter without leaking goroutines.
 func RateLimit(limit int, window time.Duration) hush.HandlerFunc {
 	var mu sync.Mutex
 	clients := make(map[string]int)
-	
-	go func() {
-		for {
-			time.Sleep(window)
-			mu.Lock()
-			clients = make(map[string]int)
-			mu.Unlock()
-		}
-	}()
+	windowStart := time.Now()
 	
 	return func(c *hush.Context) {
 		ip := c.Ctx.RemoteIP().String()
+		
 		mu.Lock()
+		if time.Since(windowStart) >= window {
+			clients = make(map[string]int)
+			windowStart = time.Now()
+		}
+		
 		clients[ip]++
 		count := clients[ip]
 		mu.Unlock()
 		
 		if count > limit {
-			c.AbortWithJSON(fasthttp.StatusTooManyRequests, map[string]string{"error": "Rate limit exceeded"})
+			c.Ctx.Error("Too Many Requests", fasthttp.StatusTooManyRequests)
+			c.Abort()
 			return
 		}
 		c.Next()
