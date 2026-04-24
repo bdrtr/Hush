@@ -3,11 +3,13 @@ package middleware
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/bdrtr/hush"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/valyala/fasthttp"
 )
 
@@ -108,19 +110,36 @@ func RateLimit(limit int, window time.Duration) hush.HandlerFunc {
 	}
 }
 
-// JWT checks for a Bearer token in Authorization header.
-// Real-world usage would verify the signature with a secret.
+// JWT checks for a Bearer token in Authorization header and verifies its signature.
 func JWT(secret string) hush.HandlerFunc {
 	return func(c *hush.Context) {
 		auth := string(c.Ctx.Request.Header.Peek("Authorization"))
 		if auth == "" || len(auth) < 7 || auth[:7] != "Bearer " {
-			c.AbortWithJSON(fasthttp.StatusUnauthorized, map[string]string{"error": "Missing or invalid token"})
+			c.Ctx.Error("Missing or invalid token", fasthttp.StatusUnauthorized)
+			c.Abort()
 			return
 		}
 		
-		token := auth[7:]
-		// Validation logic would go here
-		c.Set("jwt_token", token)
+		tokenString := auth[7:]
+		
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return []byte(secret), nil
+		})
+		
+		if err != nil || !token.Valid {
+			c.Ctx.Error("Unauthorized: Invalid token signature", fasthttp.StatusUnauthorized)
+			c.Abort()
+			return
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			c.Set("jwt_claims", claims)
+		}
+		
+		c.Set("jwt_token", tokenString)
 		c.Next()
 	}
 }
