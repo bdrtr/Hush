@@ -3,17 +3,22 @@ package hush
 import (
 	"reflect"
 
+	"github.com/bytedance/sonic"
 	"github.com/go-playground/validator/v10"
-	"github.com/goccy/go-json"
+	"github.com/valyala/fasthttp"
 )
 
 // BindBody reads JSON from fasthttp request body and parses into type T.
 func BindBody[T any](c *Context) (*T, error) {
 	var obj T
-	body := c.Ctx.PostBody()
+	body := c.Ctx.Request.Body()
 	
-	if err := json.Unmarshal(body, &obj); err != nil {
-		return nil, err
+	if len(body) > 0 {
+		if err := sonic.Unmarshal(body, &obj); err != nil {
+			c.Ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
+			c.Abort()
+			return &obj, err
+		}
 	}
 	
 	if err := validateStruct(&obj); err != nil {

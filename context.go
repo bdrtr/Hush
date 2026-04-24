@@ -5,8 +5,8 @@ import (
 	"mime/multipart"
 	"reflect"
 
+	"github.com/bytedance/sonic"
 	"github.com/fasthttp/websocket"
-	"github.com/goccy/go-json"
 	"github.com/valyala/fasthttp"
 )
 
@@ -159,13 +159,14 @@ func (c *Context) Upgrade(handler func(conn *websocket.Conn)) error {
 	return err
 }
 
-// JSON sends a JSON response with the given status code using fast goccy/go-json.
+// JSON sends a JSON response with the given status code using Sonic SIMD JSON.
 func (c *Context) JSON(code int, obj interface{}) {
 	c.Ctx.SetContentType("application/json")
 	c.Ctx.SetStatusCode(code)
-	bytes, err := json.Marshal(obj)
+
+	bytes, err := sonic.Marshal(obj)
 	if err != nil {
-		c.Ctx.Error(err.Error(), fasthttp.StatusInternalServerError)
+		c.Ctx.Error("Internal Server Error", fasthttp.StatusInternalServerError)
 		return
 	}
 	c.Ctx.Write(bytes)

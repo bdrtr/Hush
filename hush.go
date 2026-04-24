@@ -9,8 +9,10 @@ import (
 	"reflect"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/reuseport"
 )
 
 // Engine is the main framework instance.
@@ -180,13 +182,13 @@ func (rg *RouterGroup) Static(path, root string) {
 
 // Handler conforms to fasthttp.RequestHandler
 func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
-	method := string(ctx.Method())
-	path := string(ctx.Path())
+	method := unsafe.String(unsafe.SliceData(ctx.Method()), len(ctx.Method()))
+	path := ctx.Path() // raw []byte, no string conversion
 
 	c := contextPool.Get().(*Context)
 	c.reset(ctx, engine)
 
-	node := engine.router.get(method, path, c)
+	node := engine.router.getByte(method, path, c)
 
 	if node != nil {
 		c.handlers = node.handlers
@@ -237,6 +239,37 @@ func (engine *Engine) Run(addr string) error {
 		return err
 	case sig := <-quit:
 		log.Printf("Received signal: %v. Shutting down server...", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return engine.Shutdown(ctx)
+	}
+}
+
+// RunPrefork starts the server using SO_REUSEPORT, allowing multiple processes to bind to the same port.
+func (engine *Engine) RunPrefork(addr string) error {
+	engine.PrintRoutes()
+	ln, err := reuseport.Listen("tcp4", addr)
+	if err != nil {
+		return err
+	}
+	
+	engine.server = &fasthttp.Server{
+		Handler: engine.Handler,
+	}
+	
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- engine.server.Serve(ln)
+	}()
+	
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	
+	select {
+	case err := <-errCh:
+		return err
+	case sig := <-quit:
+		log.Printf("Received signal: %v. Shutting down prefork server...", sig)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return engine.Shutdown(ctx)
