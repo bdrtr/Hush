@@ -2,57 +2,157 @@ package middleware_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/bdrtr/hush"
 	"github.com/bdrtr/hush/middleware"
 	"github.com/valyala/fasthttp"
 )
 
-func TestMiddlewares(t *testing.T) {
+func TestMiddlewares_CORSAndRecovery(t *testing.T) {
 	app := hush.New()
-	
-	// Add all middlewares to test
 	app.Use(middleware.CORS("*"))
-	app.Use(middleware.Logger())
 	app.Use(middleware.Recovery())
-	
-	// Route that panics
+
 	app.GET("/panic", func(c *hush.Context) {
 		panic("test panic")
 	})
-	
-	// Normal route
+
 	app.GET("/ok", func(c *hush.Context) {
 		c.Ok("ok")
 	})
-	
-	// Simulate request to /ok
+
+	// Test normal
 	ctxOk := &fasthttp.RequestCtx{}
 	ctxOk.Request.SetRequestURI("/ok")
 	ctxOk.Request.Header.SetMethod(fasthttp.MethodGet)
-	
 	app.Handler(ctxOk)
-	
-	// Verify CORS header was added
+
 	if string(ctxOk.Response.Header.Peek("Access-Control-Allow-Origin")) != "*" {
 		t.Errorf("Expected CORS header missing on normal request")
 	}
-	
-	// Simulate request to /panic
+
+	// Test Panic Recovery
 	ctxPanic := &fasthttp.RequestCtx{}
 	ctxPanic.Request.SetRequestURI("/panic")
 	ctxPanic.Request.Header.SetMethod(fasthttp.MethodGet)
-	
-	// Run handler, expecting recovery to catch panic
 	app.Handler(ctxPanic)
-	
-	// Verify it returned a 500 error instead of crashing
+
 	if ctxPanic.Response.StatusCode() != fasthttp.StatusInternalServerError {
 		t.Errorf("Expected 500 status code on panic, got %d", ctxPanic.Response.StatusCode())
 	}
-	
-	// Verify CORS header was still added despite panic
 	if string(ctxPanic.Response.Header.Peek("Access-Control-Allow-Origin")) != "*" {
 		t.Errorf("Expected CORS header missing on panic request")
+	}
+}
+
+func TestCacheMiddleware(t *testing.T) {
+	app := hush.New()
+	
+	callCount := 0
+	app.Use(middleware.Cache(100*time.Millisecond, 10, 1024*1024))
+	
+	app.GET("/data", func(c *hush.Context) {
+		callCount++
+		c.Ok("cached data")
+	})
+
+	// First call - Cache Miss
+	ctx1 := &fasthttp.RequestCtx{}
+	ctx1.Request.SetRequestURI("/data")
+	ctx1.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx1)
+
+	if callCount != 1 {
+		t.Errorf("Expected call count 1, got %d", callCount)
+	}
+
+	// Second call - Cache Hit
+	ctx2 := &fasthttp.RequestCtx{}
+	ctx2.Request.SetRequestURI("/data")
+	ctx2.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx2)
+
+	if callCount != 1 {
+		t.Errorf("Expected call count 1 (cache hit), got %d", callCount)
+	}
+
+	// Wait for TTL expiry
+	time.Sleep(150 * time.Millisecond)
+
+	// Third call - Cache Miss (expired)
+	ctx3 := &fasthttp.RequestCtx{}
+	ctx3.Request.SetRequestURI("/data")
+	ctx3.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx3)
+
+	if callCount != 2 {
+		t.Errorf("Expected call count 2 (cache expired), got %d", callCount)
+	}
+}
+
+func TestRateLimitMiddleware(t *testing.T) {
+	app := hush.New()
+	
+	// Allow 2 requests per 100ms
+	app.Use(middleware.RateLimit(2, 100*time.Millisecond))
+	
+	app.GET("/ping", func(c *hush.Context) {
+		c.Ok("pong")
+	})
+
+	runReq := func(ip string) int {
+		ctx := &fasthttp.RequestCtx{}
+		ctx.Request.SetRequestURI("/ping")
+		ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+		ctx.Request.Header.Set("X-Forwarded-For", ip)
+		app.Handler(ctx)
+		return ctx.Response.StatusCode()
+	}
+
+	// Client 1
+	if status := runReq("192.168.1.1"); status != fasthttp.StatusOK {
+		t.Errorf("Req 1 failed, status %d", status)
+	}
+	if status := runReq("192.168.1.1"); status != fasthttp.StatusOK {
+		t.Errorf("Req 2 failed, status %d", status)
+	}
+	if status := runReq("192.168.1.1"); status != fasthttp.StatusTooManyRequests {
+		t.Errorf("Req 3 should be 429 Too Many Requests, got %d", status)
+	}
+
+	// Client 2 should be unaffected
+	if status := runReq("192.168.1.2"); status != fasthttp.StatusOK {
+		t.Errorf("Client 2 Req 1 failed, status %d", status)
+	}
+}
+
+func TestJWTMiddleware(t *testing.T) {
+	secret := "test-secret"
+	app := hush.New()
+	
+	app.GET("/protected", middleware.JWTAuth(secret), func(c *hush.Context) {
+		c.Ok("secret data")
+	})
+
+	// Missing token
+	ctx1 := &fasthttp.RequestCtx{}
+	ctx1.Request.SetRequestURI("/protected")
+	ctx1.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx1)
+
+	if ctx1.Response.StatusCode() != fasthttp.StatusUnauthorized {
+		t.Errorf("Expected 401 for missing token, got %d", ctx1.Response.StatusCode())
+	}
+
+	// Tampered token
+	ctx2 := &fasthttp.RequestCtx{}
+	ctx2.Request.SetRequestURI("/protected")
+	ctx2.Request.Header.SetMethod(fasthttp.MethodGet)
+	ctx2.Request.Header.Set("Authorization", "Bearer invalid.token.string")
+	app.Handler(ctx2)
+
+	if ctx2.Response.StatusCode() != fasthttp.StatusUnauthorized {
+		t.Errorf("Expected 401 for tampered token, got %d", ctx2.Response.StatusCode())
 	}
 }

@@ -5,7 +5,8 @@ import (
 )
 
 // NewTestContext creates a mock Context for isolated handler unit testing.
-func NewTestContext(method, path string) *Context {
+// It returns the Context and a cleanup function that MUST be called to prevent memory leaks.
+func NewTestContext(method, path string) (*Context, func()) {
 	ctx := &fasthttp.RequestCtx{}
 	ctx.Request.Header.SetMethod(method)
 	ctx.Request.SetRequestURI(path)
@@ -13,5 +14,7 @@ func NewTestContext(method, path string) *Context {
 	c := contextPool.Get().(*Context)
 	c.reset(ctx, nil)
 	
-	return c
+	return c, func() {
+		contextPool.Put(c)
+	}
 }
