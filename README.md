@@ -1,7 +1,7 @@
 <div align="center">
   <img src="hush_logo_product.png" width="200" height="200" alt="Hush Logo">
   <h1>🤫 Hush Framework</h1>
-  <p><strong>A Next-Gen, Zero-Dependency, Typesafe Go Web Framework</strong></p>
+  <p><strong>A Next-Gen, High-Performance, Typesafe Go Web Framework</strong></p>
 </div>
 
 ---
