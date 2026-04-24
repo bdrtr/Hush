@@ -2,10 +2,13 @@ package hush
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/valyala/fasthttp"
 )
+
+var paramRegex = regexp.MustCompile(`([:\*])([a-zA-Z0-9_]+)`)
 
 // SwaggerSpec represents a simplified OpenAPI 3.0 specification.
 type SwaggerSpec struct {
@@ -27,11 +30,13 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 	}
 	
 	for _, route := range e.routes {
-		if _, ok := spec.Paths[route.Path]; !ok {
-			spec.Paths[route.Path] = make(map[string]interface{})
+		openAPIPath := paramRegex.ReplaceAllString(route.Path, "{$2}")
+
+		if _, ok := spec.Paths[openAPIPath]; !ok {
+			spec.Paths[openAPIPath] = make(map[string]interface{})
 		}
 		
-		pathItem := spec.Paths[route.Path].(map[string]interface{})
+		pathItem := spec.Paths[openAPIPath].(map[string]interface{})
 		methodLower := strings.ToLower(route.Method)
 		
 		op := map[string]interface{}{
@@ -45,6 +50,22 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		}
 
 		var parameters []map[string]interface{}
+		
+		// Auto-extract path parameters (e.g., :id or *filepath)
+		matches := paramRegex.FindAllStringSubmatch(route.Path, -1)
+		for _, match := range matches {
+			if len(match) > 2 {
+				paramName := match[2]
+				parameters = append(parameters, map[string]interface{}{
+					"name":     paramName,
+					"in":       "path",
+					"required": true,
+					"schema": map[string]interface{}{
+						"type": "string",
+					},
+				})
+			}
+		}
 		
 		if route.QueryParams != nil {
 			parameters = append(parameters, buildParameters(route.QueryParams, "query")...)
