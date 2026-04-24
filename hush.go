@@ -136,6 +136,16 @@ func (rg *RouterGroup) DELETE(path string, handlers ...HandlerFunc) *Route {
 	return rg.addRoute(fasthttp.MethodDelete, path, handlers)
 }
 
+// HEAD registers a HEAD route and returns a Route object for building options.
+func (rg *RouterGroup) HEAD(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodHead, path, handlers)
+}
+
+// OPTIONS registers an OPTIONS route and returns a Route object for building options.
+func (rg *RouterGroup) OPTIONS(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodOptions, path, handlers)
+}
+
 // Static serves static files from the given root directory securely.
 func (rg *RouterGroup) Static(path, root string) {
 	fs := &fasthttp.FS{
@@ -167,8 +177,20 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	if node != nil {
 		c.handlers = node.handlers
 		c.Next()
+	} else if method == fasthttp.MethodOptions {
+		// Automatically handle CORS preflight if no specific OPTIONS route exists
+		c.handlers = append([]HandlerFunc{}, engine.middlewares...)
+		c.handlers = append(c.handlers, func(ctx *Context) {
+			ctx.Ctx.SetStatusCode(fasthttp.StatusNoContent)
+		})
+		c.Next()
 	} else {
-		ctx.Error("Not Found", fasthttp.StatusNotFound)
+		// Run global middlewares even for 404s (so Logger/CORS still fire)
+		c.handlers = append([]HandlerFunc{}, engine.middlewares...)
+		c.handlers = append(c.handlers, func(ctx *Context) {
+			ctx.Ctx.Error("Not Found", fasthttp.StatusNotFound)
+		})
+		c.Next()
 	}
 
 	contextPool.Put(c)
