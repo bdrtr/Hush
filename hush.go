@@ -14,6 +14,27 @@ type Engine struct {
 	router    *Router
 	container map[reflect.Type]interface{}
 	server    *fasthttp.Server
+	routes    []*Route
+}
+
+// Route represents a registered route and its metadata for OpenAPI
+type Route struct {
+	Method  string
+	Path    string
+	Summary string
+	Tags    []string
+}
+
+// WithSummary adds a summary to the route for OpenAPI
+func (r *Route) WithSummary(summary string) *Route {
+	r.Summary = summary
+	return r
+}
+
+// WithTags adds tags to the route for OpenAPI
+func (r *Route) WithTags(tags ...string) *Route {
+	r.Tags = append(r.Tags, tags...)
+	return r
 }
 
 // RouterGroup is used to group routes with prefixes and middlewares.
@@ -56,22 +77,29 @@ func (rg *RouterGroup) Group(prefix string) *RouterGroup {
 }
 
 // addRoute handles the actual route registration.
-func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) {
+func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Route {
 	path := rg.prefix + comp
 	finalHandlers := append([]HandlerFunc{}, rg.middlewares...)
 	finalHandlers = append(finalHandlers, handlers...)
 	
 	rg.engine.router.insert(method, path, finalHandlers)
+	
+	route := &Route{
+		Method: method,
+		Path:   path,
+	}
+	rg.engine.routes = append(rg.engine.routes, route)
+	return route
 }
 
-// GET registers a GET route.
-func (rg *RouterGroup) GET(path string, handlers ...HandlerFunc) {
-	rg.addRoute(fasthttp.MethodGet, path, handlers)
+// GET registers a GET route and returns a Route object for building options.
+func (rg *RouterGroup) GET(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodGet, path, handlers)
 }
 
-// POST registers a POST route.
-func (rg *RouterGroup) POST(path string, handlers ...HandlerFunc) {
-	rg.addRoute(fasthttp.MethodPost, path, handlers)
+// POST registers a POST route and returns a Route object for building options.
+func (rg *RouterGroup) POST(path string, handlers ...HandlerFunc) *Route {
+	return rg.addRoute(fasthttp.MethodPost, path, handlers)
 }
 
 // Static serves static files from the given root directory.

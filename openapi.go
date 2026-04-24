@@ -22,6 +22,25 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		Paths: make(map[string]interface{}),
 	}
 	
+	for _, route := range e.routes {
+		if _, ok := spec.Paths[route.Path]; !ok {
+			spec.Paths[route.Path] = make(map[string]interface{})
+		}
+		
+		pathItem := spec.Paths[route.Path].(map[string]interface{})
+		methodLower := strings.ToLower(route.Method)
+		
+		pathItem[methodLower] = map[string]interface{}{
+			"summary": route.Summary,
+			"tags":    route.Tags,
+			"responses": map[string]interface{}{
+				"200": map[string]interface{}{
+					"description": "OK",
+				},
+			},
+		}
+	}
+	
 	return spec
 }
 
