@@ -185,6 +185,8 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	path := string(ctx.Path())
 
 	c := contextPool.Get().(*Context)
+	defer contextPool.Put(c)
+	
 	c.reset(ctx, engine)
 
 	node := engine.router.get(method, path, c)
@@ -207,8 +209,6 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 		})
 		c.Next()
 	}
-
-	contextPool.Put(c)
 }
 
 // PrintRoutes logs all registered routes to the terminal, similar to Gin's debug mode.
