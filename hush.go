@@ -2,8 +2,13 @@ package hush
 
 import (
 	"context"
+	"log"
 	"net"
+	"os"
+	"os/signal"
 	"reflect"
+	"syscall"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -169,20 +174,54 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	contextPool.Put(c)
 }
 
-// Run starts the fasthttp server.
+// Run starts the fasthttp server and listens for OS signals for graceful shutdown.
 func (engine *Engine) Run(addr string) error {
 	engine.server = &fasthttp.Server{
 		Handler: engine.Handler,
 	}
-	return engine.server.ListenAndServe(addr)
+	
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- engine.server.ListenAndServe(addr)
+	}()
+	
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	
+	select {
+	case err := <-errCh:
+		return err
+	case sig := <-quit:
+		log.Printf("Received signal: %v. Shutting down server...", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return engine.Shutdown(ctx)
+	}
 }
 
-// RunTLS starts an HTTPS server.
+// RunTLS starts an HTTPS server and listens for OS signals for graceful shutdown.
 func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 	engine.server = &fasthttp.Server{
 		Handler: engine.Handler,
 	}
-	return engine.server.ListenAndServeTLS(addr, certFile, keyFile)
+	
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- engine.server.ListenAndServeTLS(addr, certFile, keyFile)
+	}()
+	
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	
+	select {
+	case err := <-errCh:
+		return err
+	case sig := <-quit:
+		log.Printf("Received signal: %v. Shutting down server...", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return engine.Shutdown(ctx)
+	}
 }
 
 // Shutdown gracefully shuts down the server.
