@@ -14,6 +14,53 @@ import (
 	"github.com/valyala/fasthttp/reuseport"
 )
 
+// Config holds the server configuration settings.
+type Config struct {
+	MaxRequestBodySize int
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	IdleTimeout        time.Duration
+	Concurrency        int
+	ReduceMemoryUsage  bool
+	Debug              bool
+	Logger             fasthttp.Logger
+}
+
+// Option represents a configuration option for the engine.
+type Option func(*Config)
+
+// WithMaxRequestBodySize sets the maximum allowed size for a request body.
+func WithMaxRequestBodySize(size int) Option { return func(c *Config) { c.MaxRequestBodySize = size } }
+
+// WithReadTimeout sets the maximum duration for reading the entire request.
+func WithReadTimeout(t time.Duration) Option { return func(c *Config) { c.ReadTimeout = t } }
+
+// WithWriteTimeout sets the maximum duration before timing out writes of the response.
+func WithWriteTimeout(t time.Duration) Option { return func(c *Config) { c.WriteTimeout = t } }
+
+// WithIdleTimeout sets the maximum amount of time to wait for the next request when keep-alive is enabled.
+func WithIdleTimeout(t time.Duration) Option { return func(c *Config) { c.IdleTimeout = t } }
+
+// WithConcurrency sets the maximum number of concurrent connections the server may serve.
+func WithConcurrency(n int) Option { return func(c *Config) { c.Concurrency = n } }
+
+// WithReduceMemoryUsage aggregates and delays small writes to reduce memory usage.
+func WithReduceMemoryUsage(b bool) Option { return func(c *Config) { c.ReduceMemoryUsage = b } }
+
+// WithDebug enables or disables debug mode (e.g. printing route registration).
+func WithDebug(b bool) Option { return func(c *Config) { c.Debug = b } }
+
+// WithLogger sets a custom logger for the fasthttp server.
+func WithLogger(l fasthttp.Logger) Option { return func(c *Config) { c.Logger = l } }
+
+// DefaultConfig returns the secure default configuration.
+func DefaultConfig() *Config {
+	return &Config{
+		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB
+		Debug:              false,
+	}
+}
+
 // Engine is the main framework instance.
 type Engine struct {
 	*RouterGroup
@@ -22,6 +69,7 @@ type Engine struct {
 	container map[reflect.Type]interface{}
 	server    *fasthttp.Server
 	routes    []*Route
+	config    *Config
 }
 
 // Route represents a registered route and its metadata for OpenAPI
@@ -80,10 +128,16 @@ type RouterGroup struct {
 }
 
 // New creates a new Hush Engine based on fasthttp.
-func New() *Engine {
+func New(opts ...Option) *Engine {
+	cfg := DefaultConfig()
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	engine := &Engine{
 		router:    newRouter(),
 		container: make(map[reflect.Type]interface{}),
+		config:    cfg,
 	}
 	engine.RouterGroup = &RouterGroup{
 		engine: engine,
@@ -217,20 +271,36 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	}
 }
 
-// PrintRoutes logs all registered routes to the terminal, similar to Gin's debug mode.
+// PrintRoutes logs all registered routes to the terminal if debug mode is enabled.
 func (engine *Engine) PrintRoutes() {
+	if !engine.config.Debug {
+		return
+	}
 	for _, route := range engine.routes {
 		log.Printf("[HUSH] %-7s %s", route.Method, route.Path)
 	}
 }
 
+// applyConfig applies the framework configuration to the fasthttp.Server instance.
+func (engine *Engine) applyConfig() {
+	if engine.server == nil {
+		engine.server = &fasthttp.Server{
+			Handler: engine.Handler,
+		}
+	}
+	engine.server.MaxRequestBodySize = engine.config.MaxRequestBodySize
+	engine.server.ReadTimeout = engine.config.ReadTimeout
+	engine.server.WriteTimeout = engine.config.WriteTimeout
+	engine.server.IdleTimeout = engine.config.IdleTimeout
+	engine.server.Concurrency = engine.config.Concurrency
+	engine.server.ReduceMemoryUsage = engine.config.ReduceMemoryUsage
+	engine.server.Logger = engine.config.Logger
+}
+
 // Run starts the fasthttp server and listens for OS signals for graceful shutdown.
 func (engine *Engine) Run(addr string) error {
 	engine.PrintRoutes()
-	engine.server = &fasthttp.Server{
-		Handler:            engine.Handler,
-		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
-	}
+	engine.applyConfig()
 	
 	errCh := make(chan error, 1)
 	go func() {
@@ -259,10 +329,7 @@ func (engine *Engine) RunPrefork(addr string) error {
 		return err
 	}
 	
-	engine.server = &fasthttp.Server{
-		Handler:            engine.Handler,
-		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
-	}
+	engine.applyConfig()
 	
 	errCh := make(chan error, 1)
 	go func() {
@@ -286,10 +353,7 @@ func (engine *Engine) RunPrefork(addr string) error {
 // RunTLS starts an HTTPS server and listens for OS signals for graceful shutdown.
 func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 	engine.PrintRoutes()
-	engine.server = &fasthttp.Server{
-		Handler:            engine.Handler,
-		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
-	}
+	engine.applyConfig()
 	
 	errCh := make(chan error, 1)
 	go func() {
@@ -334,9 +398,6 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 // Serve is used to serve on a custom listener (useful for testing)
 func (engine *Engine) Serve(ln net.Listener) error {
 	engine.PrintRoutes()
-    engine.server = &fasthttp.Server{
-		Handler:            engine.Handler,
-		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit
-	}
+    engine.applyConfig()
 	return engine.server.Serve(ln)
 }
