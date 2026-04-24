@@ -3,7 +3,7 @@ module github.com/bdrtr/hush
 go 1.22
 
 require (
-	github.com/valyala/fasthttp v1.51.0
+	github.com/valyala/fasthttp v1.52.0
 	github.com/bytedance/sonic v1.11.3
 	github.com/fasthttp/websocket v1.5.8
 	github.com/go-playground/validator/v10 v10.19.0

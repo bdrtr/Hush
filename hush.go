@@ -171,7 +171,9 @@ func (rg *RouterGroup) Static(path, root string) {
 		Root:               root,
 		IndexNames:         []string{"index.html"},
 		GenerateIndexPages: false,
-		Compress:           true,
+		Compress:           false, // Disabled to prevent zip-bomb / CPU exhaustion attacks
+		AcceptByteRange:    true,
+		CacheDuration:      10 * time.Second, // Prevent disk thrashing
 		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
 	}
 	fsHandler := fs.NewRequestHandler()
@@ -226,7 +228,8 @@ func (engine *Engine) PrintRoutes() {
 func (engine *Engine) Run(addr string) error {
 	engine.PrintRoutes()
 	engine.server = &fasthttp.Server{
-		Handler: engine.Handler,
+		Handler:            engine.Handler,
+		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
 	}
 	
 	errCh := make(chan error, 1)
@@ -257,7 +260,8 @@ func (engine *Engine) RunPrefork(addr string) error {
 	}
 	
 	engine.server = &fasthttp.Server{
-		Handler: engine.Handler,
+		Handler:            engine.Handler,
+		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
 	}
 	
 	errCh := make(chan error, 1)
@@ -283,7 +287,8 @@ func (engine *Engine) RunPrefork(addr string) error {
 func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 	engine.PrintRoutes()
 	engine.server = &fasthttp.Server{
-		Handler: engine.Handler,
+		Handler:            engine.Handler,
+		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit to prevent DoS
 	}
 	
 	errCh := make(chan error, 1)
@@ -326,11 +331,12 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	}
 }
 
-// Test Run function to mock listener for testing
+// Serve is used to serve on a custom listener (useful for testing)
 func (engine *Engine) Serve(ln net.Listener) error {
 	engine.PrintRoutes()
     engine.server = &fasthttp.Server{
-		Handler: engine.Handler,
+		Handler:            engine.Handler,
+		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB default limit
 	}
 	return engine.server.Serve(ln)
 }
