@@ -33,13 +33,28 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 	root := r.routes[method]
 	
 	for _, part := range parts {
-		child := root.matchChild(part)
+		isWild := strings.HasPrefix(part, ":") || strings.HasPrefix(part, "*")
+		var child *node
+		for _, c := range root.children {
+			if c.part == part {
+				child = c
+				break
+			}
+			if isWild && c.isWild {
+				panic("route conflict: cannot register '" + part + "' because '" + c.part + "' already exists at this path segment")
+			}
+		}
+		
 		if child == nil {
 			child = &node{
 				part:   part,
-				isWild: strings.HasPrefix(part, ":") || strings.HasPrefix(part, "*"),
+				isWild: isWild,
 			}
-			root.children = append(root.children, child)
+			if isWild {
+				root.children = append(root.children, child)
+			} else {
+				root.children = append([]*node{child}, root.children...)
+			}
 		}
 		root = child
 	}
@@ -75,7 +90,7 @@ func (r *Router) search(n *node, path string, c *Context) *node {
 	}
 
 	if path == "" {
-		if n.path != "" {
+		if n.handlers != nil {
 			return n
 		}
 		return nil
