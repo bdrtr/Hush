@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 	"net"
-	"os"
 	"os/signal"
 	"reflect"
+	"sync"
 	"syscall"
 	"time"
 
@@ -17,6 +17,7 @@ import (
 // Engine is the main framework instance.
 type Engine struct {
 	*RouterGroup
+	mu        sync.Mutex
 	router    *Router
 	container map[reflect.Type]interface{}
 	server    *fasthttp.Server
@@ -115,6 +116,9 @@ func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Ro
 	path := rg.prefix + comp
 	finalHandlers := append([]HandlerFunc{}, rg.middlewares...)
 	finalHandlers = append(finalHandlers, handlers...)
+	
+	rg.engine.mu.Lock()
+	defer rg.engine.mu.Unlock()
 	
 	rg.engine.router.insert(method, path, finalHandlers)
 	
