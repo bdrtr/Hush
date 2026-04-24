@@ -100,6 +100,10 @@ func main() {
     app := hush.New()
     var db DB = &Postgres{}
     hush.Provide[DB](app, db) // Provide interface or struct
+    
+    // You can also provide the built-in Essence DB!
+    // db := essence.New()
+    // hush.Provide[*essence.EssenceDB](app, db)
 }
 ```
 
@@ -120,15 +124,17 @@ app.GET("/user", func(c *hush.Context) {
 Hush makes unit testing handlers extremely easy.
 
 ### Unit Testing Handlers
+Because Hush uses `valyala/fasthttp` under the hood, you test by mocking `*fasthttp.RequestCtx`.
+
 ```go
 func TestUserRoute(t *testing.T) {
-    c, w := hush.NewTestContext("GET", "/users/1")
+    c := hush.NewTestContext("GET", "/users/1")
     
     // Call handler directly
     UserHandler(c)
     
-    if w.Code != 200 {
-        t.Errorf("Expected 200, got %d", w.Code)
+    if c.Ctx.Response.StatusCode() != 200 {
+        t.Errorf("Expected 200, got %d", c.Ctx.Response.StatusCode())
     }
 }
 ```

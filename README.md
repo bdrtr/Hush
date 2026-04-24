@@ -5,17 +5,17 @@
 
 ---
 
-**Hush** (formerly Glow) is an ultra-fast, entirely zero-dependency web framework built natively on Go 1.22+. It leverages modern Go Generics (`[T any]`) to eliminate the need for `interface{}` casting, providing a 100% Typesafe developer experience.
+**Hush** (formerly Glow) is an ultra-fast, zero-allocation web framework built natively on Go 1.22+. Powered by the lightning-fast `valyala/fasthttp` under the hood and leveraging `goccy/go-json`, it is designed to achieve maximum RPS (Requests Per Second). Furthermore, it leverages modern Go Generics (`[T any]`) to provide a 100% Typesafe developer experience without the `interface{}` overhead.
 
 ## ✨ Key Features
 
-1. **Zero-Allocation Context:** Uses `sync.Pool` under the hood to recycle request contexts, ensuring virtually zero heap allocations per request.
-2. **Generics-Based Binding:** Bind JSON bodies and URL queries directly to your strict typed structs via `hush.BindBody[T](c)`. No type-assertions needed.
-3. **Reflection Validator:** Automatically enforces validation rules (like `validate:"required"`) based on struct tags.
-4. **Typesafe Dependency Injection:** Built-in generic DI Container (`hush.Provide[T]` and `hush.Inject[T]`). Say goodbye to complex global variables!
-5. **OpenAPI & Swagger UI:** Auto-generates OpenAPI 3.0 schema and serves a built-in Swagger UI at `/docs`.
-6. **Middleware & Security:** Comes pre-packaged with zero-dependency `Helmet()`, `CORS()`, `RequestID()`, and `BasicAuth()` middlewares.
-7. **Production Ready:** Native support for Graceful Shutdown and HTTP/2 (TLS).
+1. **Extreme Performance:** Built on top of `fasthttp`.
+2. **Zero-Allocation Routing:** Uses fixed-size arrays (`[10]Param`) and pointer-based path matching to ensure 0 bytes memory allocation during URL parameter parsing.
+3. **Generics-Based Binding:** Bind JSON bodies and URL queries directly to your strict typed structs via `hush.BindBody[T](c)`. Powered by `goccy/go-json` for 300% faster JSON encoding/decoding.
+4. **Typesafe Dependency Injection:** Built-in generic DI Container (`hush.Provide[T]` and `hush.Inject[T]`).
+5. **Essence DB Native Support:** Includes `ext/essence` CGO bindings to seamlessly integrate with the Rust-based Essence spatial database.
+6. **OpenAPI & Swagger UI:** Auto-generates OpenAPI 3.0 schema and serves a built-in Swagger UI at `/docs`.
+7. **Middleware & Security:** Comes pre-packaged with `Helmet()`, `CORS()`, and `RequestID()` middlewares.
 
 ## 🚀 Quick Start
 
