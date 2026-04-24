@@ -63,23 +63,28 @@ func (db *EssenceDB) GetNearbyUsers(userID string, radiusKm float64, max int) []
 	cUser := C.CString(userID)
 	defer C.free(unsafe.Pointer(cUser))
 	
-	outMatches := make([]C.FFIUserMatch, max)
+	// Allocate array in C memory to prevent Go GC from moving it and avoid C/Go heap mismatch
+	outMatches := (*C.FFIUserMatch)(C.malloc(C.size_t(max) * C.size_t(unsafe.Sizeof(C.FFIUserMatch{}))))
+	defer C.free(unsafe.Pointer(outMatches))
 	
 	found := C.essence_get_nearby_users(
 		db.ptr,
 		cUser,
 		C.double(radiusKm),
-		(*C.FFIUserMatch)(unsafe.Pointer(&outMatches[0])),
+		outMatches,
 		C.int(max),
 	)
 	
-	defer C.essence_free_matches((*C.FFIUserMatch)(unsafe.Pointer(&outMatches[0])), found)
+	// Free inner strings allocated by Rust
+	defer C.essence_free_matches(outMatches, found)
+	
+	matchesSlice := unsafe.Slice(outMatches, int(found))
 	
 	results := make([]Match, 0, int(found))
 	for i := 0; i < int(found); i++ {
 		results = append(results, Match{
-			UserID:     C.GoString(outMatches[i].user_id),
-			DistanceKM: float64(outMatches[i].distance_km),
+			UserID:     C.GoString(matchesSlice[i].user_id),
+			DistanceKM: float64(matchesSlice[i].distance_km),
 		})
 	}
 	
