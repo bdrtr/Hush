@@ -56,8 +56,8 @@ func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Ro
 	rg.engine.router.insert(method, path, finalHandlers)
 
 	route := &Route{
-		Method: method,
-		Path:   path,
+		method: method,
+		path:   path,
 	}
 	rg.engine.routes = append(rg.engine.routes, route)
 	return route

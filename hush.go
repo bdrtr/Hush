@@ -112,7 +112,7 @@ func (engine *Engine) PrintRoutes() {
 		return
 	}
 	for _, route := range engine.routes {
-		log.Printf("[HUSH] %-7s %s", route.Method, route.Path)
+		log.Printf("[HUSH] %-7s %s", route.Method(), route.Path())
 	}
 }
 

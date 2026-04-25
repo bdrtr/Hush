@@ -6,14 +6,24 @@ import "reflect"
 // WARNING: Route builder methods (WithTags, WithSummary, etc.) are NOT thread-safe.
 // They should only be called sequentially during server initialization, not concurrently.
 type Route struct {
-	Method       string
-	Path         string
+	method       string
+	path         string
 	Summary      string
 	Tags         []string
 	RequestBody  reflect.Type
 	ResponseBody reflect.Type
 	QueryParams  reflect.Type
 	HeaderParams reflect.Type
+}
+
+// Method returns the HTTP method of the route.
+func (r *Route) Method() string {
+	return r.method
+}
+
+// Path returns the path of the route.
+func (r *Route) Path() string {
+	return r.path
 }
 
 // WithSummary adds a summary to the route for OpenAPI.
@@ -39,7 +49,10 @@ func (r *Route) WithTags(tags ...string) *Route {
 	return r
 }
 
-// WithBody documents the request body type for OpenAPI
+// WithBody documents the request body type for OpenAPI.
+// Note: Due to Go generics limitations, this must be called as a wrapper:
+//
+//	hush.WithBody[MyReq](route.WithSummary("x"))
 func WithBody[T any](r *Route) *Route {
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() == reflect.Interface {
@@ -49,7 +62,8 @@ func WithBody[T any](r *Route) *Route {
 	return r
 }
 
-// WithResponse documents the response body type for OpenAPI
+// WithResponse documents the response body type for OpenAPI.
+// Note: Due to Go generics limitations, this must be called as a wrapper.
 func WithResponse[T any](r *Route) *Route {
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() == reflect.Interface {
@@ -59,7 +73,8 @@ func WithResponse[T any](r *Route) *Route {
 	return r
 }
 
-// WithQuery documents the query parameters type for OpenAPI
+// WithQuery documents the query parameters type for OpenAPI.
+// Note: Due to Go generics limitations, this must be called as a wrapper.
 func WithQuery[T any](r *Route) *Route {
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() == reflect.Interface {
@@ -69,7 +84,8 @@ func WithQuery[T any](r *Route) *Route {
 	return r
 }
 
-// WithHeader documents the header parameters type for OpenAPI
+// WithHeader documents the header parameters type for OpenAPI.
+// Note: Due to Go generics limitations, this must be called as a wrapper.
 func WithHeader[T any](r *Route) *Route {
 	t := reflect.TypeOf((*T)(nil)).Elem()
 	if t.Kind() == reflect.Interface {

@@ -36,14 +36,14 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 	e.mu.RUnlock()
 	
 	for _, route := range routes {
-		openAPIPath := paramRegex.ReplaceAllString(route.Path, "{$2}")
+		openAPIPath := paramRegex.ReplaceAllString(route.Path(), "{$2}")
 
 		if _, ok := spec.Paths[openAPIPath]; !ok {
 			spec.Paths[openAPIPath] = make(map[string]interface{})
 		}
 		
 		pathItem := spec.Paths[openAPIPath].(map[string]interface{})
-		methodLower := strings.ToLower(route.Method)
+		methodLower := strings.ToLower(route.Method())
 		
 		op := map[string]interface{}{
 			"responses": map[string]interface{}{
@@ -63,7 +63,7 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		var parameters []map[string]interface{}
 		
 		// Auto-extract path parameters (e.g., :id or *filepath)
-		matches := paramRegex.FindAllStringSubmatch(route.Path, -1)
+		matches := paramRegex.FindAllStringSubmatch(route.Path(), -1)
 		for _, match := range matches {
 			if len(match) > 2 {
 				paramName := match[2]
