@@ -112,7 +112,6 @@ func (rg *RouterGroup) Static(path, root string) {
 			}
 			return []byte(p)
 		},
-		CleanPath:          true,
 		PathNotFound:       func(ctx *fasthttp.RequestCtx) { ctx.Error("Not Found", fasthttp.StatusNotFound) },
 	}
 	fsHandler := fs.NewRequestHandler()
