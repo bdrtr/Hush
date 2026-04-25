@@ -168,6 +168,13 @@ func (engine *Engine) RunPrefork(addr string) error {
 		return err
 	}
 	
+	defer func() {
+		if r := recover(); r != nil {
+			ln.Close()
+			panic(r)
+		}
+	}()
+	
 	engine.applyConfig()
 	
 	errCh := make(chan error, 1)
@@ -239,7 +246,9 @@ func (engine *Engine) Shutdown(ctx context.Context) error {
 	}
 }
 
-// Serve is used to serve on a custom listener (useful for testing)
+// Serve is used to serve on a custom listener.
+// Note: This method does NOT include OS signal handling or graceful shutdown.
+// For production use with graceful shutdown, prefer Run or RunTLS.
 func (engine *Engine) Serve(ln net.Listener) error {
 	engine.PrintRoutes()
     engine.applyConfig()
