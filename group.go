@@ -97,9 +97,9 @@ func (rg *RouterGroup) Static(path, root string) {
 		Root:               root,
 		IndexNames:         []string{"index.html"},
 		GenerateIndexPages: false,
-		Compress:           false, // Disabled to prevent zip-bomb / CPU exhaustion attacks
+		Compress:           true, // Compress static assets (brotli/gzip) to save bandwidth
 		AcceptByteRange:    true,
-		CacheDuration:      10 * time.Second, // Prevent disk thrashing
+		CacheDuration:      10 * time.Minute, // Keep files in memory to reduce disk I/O
 		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
 		CleanPath:          true,
 		PathNotFound:       func(ctx *fasthttp.RequestCtx) { ctx.Error("Not Found", fasthttp.StatusNotFound) },
