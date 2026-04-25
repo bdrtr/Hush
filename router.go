@@ -1,6 +1,7 @@
 package hush
 
 import (
+	"log"
 	"strings"
 
 	"github.com/cespare/xxhash/v2"
@@ -80,8 +81,11 @@ func (r *Router) get(method, path string, c *Context) *node {
 	// O(1) Fast-Path for purely static routes
 	if cache, ok := r.staticCache[method]; ok {
 		hash := xxhash.Sum64String(path)
-		if n, found := cache[hash]; found && n.path == path {
-			return n
+		if n, found := cache[hash]; found {
+			if n.path == path {
+				return n
+			}
+			log.Printf("[HUSH-WARN] Hash collision detected in static route cache: '%s' vs '%s'. Falling back to tree traversal.", n.path, path)
 		}
 	}
 
