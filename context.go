@@ -95,6 +95,9 @@ func Inject[T any](c *Context) T {
 		return zero
 	}
 
+	c.engine.mu.RLock()
+	defer c.engine.mu.RUnlock()
+
 	typ := reflect.TypeOf((*T)(nil)).Elem()
 	
 	// Fast path: Exact match

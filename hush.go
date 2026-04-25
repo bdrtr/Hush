@@ -21,7 +21,7 @@ import (
 // Engine is the main framework instance.
 type Engine struct {
 	*RouterGroup
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	router    *Router
 	container map[reflect.Type]interface{}
 	server    *fasthttp.Server
@@ -54,6 +54,8 @@ func New(opts ...Option) *Engine {
 
 // Provide registers a singleton dependency.
 func Provide[T any](e *Engine, instance T) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	typ := reflect.TypeOf((*T)(nil)).Elem()
 	e.container[typ] = instance
 }
