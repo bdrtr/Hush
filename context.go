@@ -68,8 +68,8 @@ func (c *Context) AbortWithStatus(code int) {
 
 // AbortWithJSON calls Abort and writes the JSON response.
 func (c *Context) AbortWithJSON(code int, obj interface{}) {
-	c.Abort()
 	c.JSON(code, obj)
+	c.Abort()
 }
 
 // AbortWithError calls Abort and writes the error message as a JSON response.
