@@ -34,7 +34,7 @@ func BindBody[T any](c *Context) (*T, error) {
 	if err := sonic.Unmarshal(body, &obj); err != nil {
 		c.Ctx.Error("Invalid JSON body", fasthttp.StatusBadRequest)
 		c.Abort()
-		return &obj, err
+		return nil, err
 	}
 	
 	if err := validateStruct(&obj); err != nil {
