@@ -175,8 +175,9 @@ func (c *Context) Upgrade(allowedOrigins []string, handler func(conn *websocket.
 			}
 			origin := string(ctx.Request.Header.Peek("Origin"))
 			if origin == "" {
-				// Non-browser clients (mobile, server-to-server) might not send Origin
-				return true
+				// Do not implicitly trust empty origins. This prevents bypass attacks
+				// from non-browser clients (e.g. curl, custom scripts).
+				return false
 			}
 			for _, o := range allowedOrigins {
 				if o == "*" || o == origin {
