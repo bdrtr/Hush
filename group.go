@@ -120,6 +120,5 @@ func (rg *RouterGroup) Static(path, root string) {
 		fsHandler(c.Ctx)
 	}
 	rg.GET(path+"/*filepath", handler)
-	rg.GET(path+"/", handler)
 	rg.GET(path, handler)
 }
