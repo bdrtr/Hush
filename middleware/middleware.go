@@ -124,14 +124,9 @@ func RateLimit(limit int, window time.Duration) hush.HandlerFunc {
 	clients := make(map[string]*clientData)
 	
 	return func(c *hush.Context) {
-		ip := string(c.Ctx.Request.Header.Peek("X-Forwarded-For"))
-		if ip != "" {
-			if commaIdx := strings.IndexByte(ip, ','); commaIdx != -1 {
-				ip = ip[:commaIdx]
-			}
-		} else {
-			ip = c.Ctx.RemoteIP().String()
-		}
+		// Use actual TCP RemoteIP to prevent X-Forwarded-For spoofing attacks.
+		// If behind a proxy like Cloudflare, the framework config should handle trusted proxies separately.
+		ip := c.Ctx.RemoteIP().String()
 		
 		var count int
 		
