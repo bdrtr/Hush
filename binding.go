@@ -38,6 +38,8 @@ func BindBody[T any](c *Context) (*T, error) {
 	}
 	
 	if err := validateStruct(&obj); err != nil {
+		c.Ctx.Error(err.Error(), fasthttp.StatusUnprocessableEntity)
+		c.Abort()
 		return nil, err
 	}
 	
