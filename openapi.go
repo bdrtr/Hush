@@ -29,7 +29,12 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		Paths: make(map[string]interface{}),
 	}
 	
-	for _, route := range e.routes {
+	e.mu.RLock()
+	routes := make([]*Route, len(e.routes))
+	copy(routes, e.routes)
+	e.mu.RUnlock()
+	
+	for _, route := range routes {
 		openAPIPath := paramRegex.ReplaceAllString(route.Path, "{$2}")
 
 		if _, ok := spec.Paths[openAPIPath]; !ok {
@@ -178,6 +183,10 @@ func buildSchema(t reflect.Type) map[string]interface{} {
 
 // ServeSwaggerUI serves the swagger.json and a basic UI.
 func (e *Engine) ServeSwaggerUI(path string) {
+	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "'\"<>") {
+		panic("hush: invalid swagger path, potential XSS or malformed route")
+	}
+
 	e.GET(path+"/swagger.json", func(c *Context) {
 		spec := e.GenerateOpenAPI()
 		c.Ok(spec)
