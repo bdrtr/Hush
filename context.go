@@ -161,6 +161,7 @@ func (c *Context) SSE(streamer func(w *bufio.Writer) error) {
 	c.Ctx.SetContentType("text/event-stream")
 	c.Ctx.Response.Header.Set("Cache-Control", "no-cache")
 	c.Ctx.Response.Header.Set("Connection", "keep-alive")
+	c.Ctx.Response.Header.Set("X-Accel-Buffering", "no") // Disable Nginx proxy buffering
 	
 	c.Ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		_ = streamer(w)
