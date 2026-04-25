@@ -42,7 +42,7 @@ func (c *Context) reset(ctx *fasthttp.RequestCtx, engine *Engine) {
 	c.Ctx = ctx
 	c.engine = engine
 	c.index = -1
-	c.handlers = nil
+	c.handlers = c.handlers[:0] // Preserve capacity for zero-allocation
 	c.paramCount = 0 // Just reset count, array stays in memory without alloc
 }
 
