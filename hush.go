@@ -118,6 +118,9 @@ func (engine *Engine) PrintRoutes() {
 
 // applyConfig applies the framework configuration to the fasthttp.Server instance.
 func (engine *Engine) applyConfig() {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	
 	if engine.server == nil {
 		engine.server = &fasthttp.Server{
 			Handler: engine.Handler,
@@ -214,13 +217,17 @@ func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 
 // Shutdown gracefully shuts down the server.
 func (engine *Engine) Shutdown(ctx context.Context) error {
-	if engine.server == nil {
+	engine.mu.RLock()
+	server := engine.server
+	engine.mu.RUnlock()
+
+	if server == nil {
 		return nil
 	}
 	
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- engine.server.Shutdown()
+		errCh <- server.Shutdown()
 	}()
 	
 	select {
