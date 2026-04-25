@@ -59,8 +59,10 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 				isWild: isWild,
 			}
 			if isWild {
+				// Append wildcards to the end so they are evaluated last
 				root.children = append(root.children, child)
 			} else {
+				// Prepend static routes to the beginning to guarantee exact-match precedence
 				root.children = append([]*node{child}, root.children...)
 			}
 		}
