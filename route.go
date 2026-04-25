@@ -26,7 +26,16 @@ func (r *Route) WithSummary(summary string) *Route {
 // WithTags adds tags to the route for OpenAPI.
 // Note: This method is not thread-safe.
 func (r *Route) WithTags(tags ...string) *Route {
-	r.Tags = append(r.Tags, tags...)
+	seen := make(map[string]bool, len(r.Tags))
+	for _, t := range r.Tags {
+		seen[t] = true
+	}
+	for _, t := range tags {
+		if !seen[t] {
+			r.Tags = append(r.Tags, t)
+			seen[t] = true
+		}
+	}
 	return r
 }
 
