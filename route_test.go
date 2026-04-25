@@ -1,7 +1,6 @@
 package hush
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -41,7 +40,7 @@ func TestRoute_WithResponseInterfacePanic(t *testing.T) {
 	}()
 
 	r := &Route{}
-	WithResponse[error](r, 200, "Success")
+	WithResponse[error](r)
 }
 
 func TestRoute_Getters(t *testing.T) {

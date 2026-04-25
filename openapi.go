@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -19,13 +20,23 @@ type SwaggerSpec struct {
 	Components map[string]interface{} `json:"components,omitempty"`
 }
 
-// GenerateOpenAPI creates a basic swagger.json
-func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
+// GenerateOpenAPI creates a basic swagger.json.
+// Optional args: title (string), version (string).
+func (e *Engine) GenerateOpenAPI(args ...string) *SwaggerSpec {
+	title := "Hush API"
+	version := "1.0.0"
+	if len(args) > 0 && args[0] != "" {
+		title = args[0]
+	}
+	if len(args) > 1 && args[1] != "" {
+		version = args[1]
+	}
+
 	spec := &SwaggerSpec{
 		OpenAPI: "3.0.0",
 		Info: map[string]string{
-			"title":   "Hush API",
-			"version": "1.0.0",
+			"title":   title,
+			"version": version,
 		},
 		Paths: make(map[string]interface{}),
 	}

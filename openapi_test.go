@@ -63,8 +63,7 @@ func TestOpenAPI_EmptyTagsAndSummary(t *testing.T) {
 	// Intentionally don't set Tags or Summary
 	
 	doc := e.GenerateOpenAPI("Test", "1.0")
-	paths := doc["paths"].(map[string]interface{})
-	testPath := paths["/test"].(map[string]interface{})
+	testPath := doc.Paths["/test"].(map[string]interface{})
 	getOp := testPath["get"].(map[string]interface{})
 	
 	if _, exists := getOp["summary"]; exists {
@@ -78,7 +77,7 @@ func TestOpenAPI_EmptyTagsAndSummary(t *testing.T) {
 	// Now test setting them
 	r.WithSummary("Hello").WithTags("test")
 	doc2 := e.GenerateOpenAPI("Test", "1.0")
-	getOp2 := doc2["paths"].(map[string]interface{})["/test"].(map[string]interface{})["get"].(map[string]interface{})
+	getOp2 := doc2.Paths["/test"].(map[string]interface{})["get"].(map[string]interface{})
 	
 	if getOp2["summary"] != "Hello" {
 		t.Errorf("Expected summary Hello, got %v", getOp2["summary"])

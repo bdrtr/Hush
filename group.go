@@ -2,7 +2,6 @@ package hush
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -37,11 +36,11 @@ func (rg *RouterGroup) Group(prefix string) *RouterGroup {
 // addRoute handles the actual route registration.
 func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Route {
 	path := rg.prefix + comp
-	
-	rg.engine.mu.RLock()
+
+	rg.engine.mu.Lock()
+	defer rg.engine.mu.Unlock()
+
 	finalHandlers := append([]HandlerFunc{}, rg.middlewares...)
-	rg.engine.mu.RUnlock()
-	
 	finalHandlers = append(finalHandlers, handlers...)
 
 	const maxHandlers = 63

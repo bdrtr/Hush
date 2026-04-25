@@ -35,10 +35,7 @@ func TestGroup_MiddlewareInheritance(t *testing.T) {
 	// v1 should NOT inherit this.
 	api.Use(func(c *Context) {}) // api = 3, v1 still 3
 
-	r := v1.GET("/test", func(c *Context) {}) // +1 endpoint handler = 4 total for v1 route
-
-	e.mu.RLock()
-	defer e.mu.RUnlock()
+	v1.GET("/test", func(c *Context) {}) // +1 endpoint handler = 4 total for v1 route
 
 	// Find the node in the router to inspect handlers
 	c := &Context{}
