@@ -102,9 +102,7 @@ func main() {
     var db DB = &Postgres{}
     hush.Provide[DB](app, db) // Provide interface or struct
     
-    // You can also provide the built-in Essence DB!
-    // db := essence.New()
-    // hush.Provide[*essence.EssenceDB](app, db)
+
 }
 ```
 
