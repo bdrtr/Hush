@@ -2,10 +2,12 @@ package hush
 
 import (
 	"bufio"
+	"context"
 	"mime/multipart"
 	"reflect"
 	"sync"
 
+	"github.com/bdrtr/hush/ai"
 	"github.com/bytedance/sonic"
 	"github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
@@ -166,6 +168,52 @@ func (c *Context) SSE(streamer func(w *bufio.Writer) error) {
 	c.Ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
 		_ = streamer(w)
 	})
+}
+
+// StreamAI streams a response directly from an AI client (OpenAI, Ollama) to the user via SSE.
+func (c *Context) StreamAI(client ai.Client, req ai.GenerateRequest) {
+	ch := make(chan ai.StreamChunk)
+	
+	// Start streaming in the background
+	go client.Stream(context.Background(), req, ch)
+
+	c.SSE(func(w *bufio.Writer) error {
+		for chunk := range ch {
+			if chunk.Error != nil {
+				// Send error as an SSE event and break
+				data, _ := sonic.Marshal(map[string]string{"error": chunk.Error.Error()})
+				w.WriteString("data: " + string(data) + "\n\n")
+				w.Flush()
+				return chunk.Error
+			}
+
+			if chunk.Done {
+				w.WriteString("data: [DONE]\n\n")
+				w.Flush()
+				break
+			}
+
+			// Send chunk content
+			if chunk.Content != "" {
+				data, _ := sonic.Marshal(map[string]string{"content": chunk.Content})
+				w.WriteString("data: " + string(data) + "\n\n")
+				if err := w.Flush(); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// PromptAI makes a blocking request to an AI client and returns the JSON response.
+func (c *Context) PromptAI(client ai.Client, req ai.GenerateRequest) {
+	resp, err := client.Generate(context.Background(), req)
+	if err != nil {
+		c.Ctx.Error(err.Error(), fasthttp.StatusBadGateway)
+		return
+	}
+	c.Ok(resp)
 }
 
 // Upgrade upgrades the HTTP connection to a WebSocket connection securely.
