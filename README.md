@@ -1,46 +1,40 @@
 <div align="center">
   <img src="hush_logo_product.png" width="200" height="200" alt="Hush Logo">
   <h1>🤫 Hush Framework</h1>
-  <p><strong>A Next-Gen, High-Performance, Typesafe Go Web Framework</strong></p>
+  <p><strong>A Next-Gen, Ultra-Fast, Typesafe Go Web Framework</strong></p>
+
+  [![Go Reference](https://pkg.go.dev/badge/github.com/bdrtr/hush.svg)](https://pkg.go.dev/github.com/bdrtr/hush)
+  [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 </div>
 
 ---
 
-**Hush** (formerly Glow) is an ultra-fast, zero-allocation web framework built natively on Go 1.22+. Powered by the lightning-fast `valyala/fasthttp` under the hood and leveraging `goccy/go-json`, it is designed to achieve maximum RPS (Requests Per Second). Furthermore, it leverages modern Go Generics (`[T any]`) to provide a 100% Typesafe developer experience without the `interface{}` overhead.
+**Hush** is an uncompromisingly fast, zero-allocation web framework built natively on Go 1.23+. Powered by the lightning-fast `valyala/fasthttp` and `bytedance/sonic` (SIMD JSON) under the hood, it is engineered to achieve absolute maximum Requests Per Second (RPS). 
 
-## ✨ Key Features
+It abandons `interface{}` overhead completely, leveraging **Go Generics** (`[T any]`) to provide a 100% Typesafe developer experience.
 
-1. **Extreme Performance:** Built on top of `fasthttp`.
-2. **Zero-Allocation Routing:** Uses fixed-size arrays (`[10]Param`) and pointer-based path matching to ensure 0 bytes memory allocation during URL parameter parsing.
-3. **Generics-Based Binding:** Bind JSON bodies and URL queries directly to your strict typed structs via `hush.BindBody[T](c)`. Powered by `goccy/go-json` for 300% faster JSON encoding/decoding.
-4. **Typesafe Dependency Injection:** Built-in generic DI Container (`hush.Provide[T]` and `hush.Inject[T]`).
+## ✨ Why Hush?
 
-6. **OpenAPI & Swagger UI:** Auto-generates OpenAPI 3.0 schema and serves a built-in Swagger UI at `/docs`.
-7. **Middleware & Security:** Comes pre-packaged with `Helmet()`, `CORS()`, and `RequestID()` middlewares.
+- 🚀 **Extreme Performance:** Built on `fasthttp`, making it up to 10x faster than `net/http`.
+- 🧠 **Zero-Allocation Routing:** Uses custom Radix Trees, fixed-size parameter arrays (`[10]Param`), and O(1) Hash Map lookups for static routes resulting in **0 Bytes** memory allocation.
+- 🛡️ **Bulletproof Security:** Ships with built-in `Helmet`, `CORS`, `JWT`, `RateLimit`, and automatic XSS protections.
+- 🧩 **Typesafe Generics:** Bind JSON and Queries directly to structs with `hush.BindBody[T](c)`. No reflection penalties, no `interface{}` casting.
+- 📊 **Built-in Observability:** Zero-allocation `sync/atomic` metrics (`Stats()`) and contextual structured logging (`Logger()`, `RequestID()`).
+- 📘 **Auto OpenAPI 3.0:** Generates Swagger documentation on-the-fly and serves the UI out of the box.
 
-## ⚡ Performance Benchmarks
+## ⚡ Performance
 
-Hush is engineered to push Go to its absolute physical limits using SIMD instructions, O(1) routing trees, and Zero-Allocation patterns.
+Hush pushes Go to its physical limits using SIMD instructions, strict data race prevention, and GC-friendly memory pooling.
 
-### 1. Load Testing (Concurrent Throughput)
-Tested with 1,000 concurrent workers against a static route (`hey -n 1000000 -c 1000 http://localhost:8080/`).
-
-| Metric | Result |
-| :--- | :--- |
-| **Requests/sec (RPS)** | **283,348** |
-| **P50 Latency** | 0.2 ms |
-| **P99 Latency** | 26 ms |
-| **Errors** | 0 |
-
-### 2. Micro-Benchmarks (Routing & Memory)
-Tested using `go test -bench=. -benchmem` running on an AMD Ryzen 7 8845HS processor.
+### Micro-Benchmarks (Routing & Memory)
+Tested on an AMD Ryzen 7 8845HS.
 
 | Operation | Speed (ns/op) | Memory Allocated | Allocs/op |
 | :--- | :--- | :--- | :--- |
 | **O(1) Static Route** | **25.96 ns** | **0 B/op** | **0** |
 | **Param Route (`:id`)** | 39.47 ns | **0 B/op** | **0** |
 | **Wildcard Route (`*path`)**| 42.50 ns | **0 B/op** | **0** |
-| **JSON Serialization** | 386.80 ns | 661 B/op | 6 |
 
 ## 🚀 Quick Start
 
@@ -49,7 +43,7 @@ Tested using `go test -bench=. -benchmem` running on an AMD Ryzen 7 8845HS proce
 go get github.com/bdrtr/hush
 ```
 
-### Basic Example
+### Hello World (with Typesafe Binding & Swagger)
 ```go
 package main
 
@@ -60,31 +54,42 @@ import (
 
 type UserRequest struct {
 	Name  string `json:"name" validate:"required"`
-	Email string `json:"email" validate:"required"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 func main() {
 	app := hush.New()
 
-	// Generic Body Binding & Validation
-	app.POST("/users", func(c *hush.Context) {
-		req, err := hush.BindBody[UserRequest](c)
-		if err != nil {
-			c.BadRequest(err.Error())
-			return
-		}
-		
-		c.Created(map[string]string{
-			"message": "User " + req.Name + " created successfully!",
-		})
-	})
+	// 1. Add Observability
+	app.Use(hush.Logger())
 
+	// 2. Typesafe Route
+	hush.WithBody[UserRequest](
+		app.POST("/users", func(c *hush.Context) {
+			// Generics-based JSON Binding + Validation
+			req, err := hush.BindBody[UserRequest](c)
+			if err != nil {
+				return // BindBody handles the 400 Bad Request response automatically
+			}
+			
+			c.Created(map[string]string{
+				"message": "Welcome, " + req.Name + "!",
+			})
+		}).WithSummary("Create a new user"),
+	)
+
+	// 3. Serve Auto-Generated Swagger UI
+	app.ServeSwaggerUI("/docs")
+
+	// 4. Start Server
+	log.Println("Server running on http://localhost:8080")
 	log.Fatal(app.Run(":8080"))
 }
 ```
 
 ## 📖 Documentation
-Please see the [WIKI.md](./WIKI.md) for detailed documentation, advanced routing, dependency injection examples, and testing strategies.
+
+For advanced routing, dependency injection, middleware crafting, and performance tuning, please read the [Official Wiki](./WIKI.md).
 
 ## 📝 License
 Written with 🦀 and 🐹. Open-source and free to use.
