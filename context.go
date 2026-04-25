@@ -202,12 +202,12 @@ func (c *Context) JSON(code int, obj interface{}) {
 	c.Ctx.SetContentType("application/json")
 	c.Ctx.SetStatusCode(code)
 
-	bytes, err := sonic.Marshal(obj)
+	data, err := sonic.Marshal(obj)
 	if err != nil {
 		c.Ctx.Error("Internal Server Error", fasthttp.StatusInternalServerError)
 		return
 	}
-	c.Ctx.Write(bytes)
+	c.Ctx.Write(data)
 }
 
 // Ok sends a 200 OK JSON response.
