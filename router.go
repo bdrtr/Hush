@@ -158,14 +158,6 @@ func (r *Router) search(n *node, path string, c *Context) *node {
 	return nil
 }
 
-func (n *node) matchChild(part string) *node {
-	for _, child := range n.children {
-		if child.part == part {
-			return child
-		}
-	}
-	return nil
-}
 
 func parsePath(path string) []string {
 	parts := strings.Split(path, "/")
