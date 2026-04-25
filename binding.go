@@ -69,26 +69,48 @@ func BindQuery[T any](c *Context) (*T, error) {
 			case reflect.String:
 				val.Field(i).SetString(strVal)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				if intVal, err := strconv.ParseInt(strVal, 10, 64); err == nil {
-					val.Field(i).SetInt(intVal)
+				intVal, err := strconv.ParseInt(strVal, 10, 64)
+				if err != nil {
+					err = fmt.Errorf("invalid integer value for query parameter '%s': %w", tag, err)
+					c.Ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+					c.Abort()
+					return nil, err
 				}
+				val.Field(i).SetInt(intVal)
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				if uintVal, err := strconv.ParseUint(strVal, 10, 64); err == nil {
-					val.Field(i).SetUint(uintVal)
+				uintVal, err := strconv.ParseUint(strVal, 10, 64)
+				if err != nil {
+					err = fmt.Errorf("invalid unsigned integer value for query parameter '%s': %w", tag, err)
+					c.Ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+					c.Abort()
+					return nil, err
 				}
+				val.Field(i).SetUint(uintVal)
 			case reflect.Bool:
-				if boolVal, err := strconv.ParseBool(strVal); err == nil {
-					val.Field(i).SetBool(boolVal)
+				boolVal, err := strconv.ParseBool(strVal)
+				if err != nil {
+					err = fmt.Errorf("invalid boolean value for query parameter '%s': %w", tag, err)
+					c.Ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+					c.Abort()
+					return nil, err
 				}
+				val.Field(i).SetBool(boolVal)
 			case reflect.Float32, reflect.Float64:
-				if floatVal, err := strconv.ParseFloat(strVal, 64); err == nil {
-					val.Field(i).SetFloat(floatVal)
+				floatVal, err := strconv.ParseFloat(strVal, 64)
+				if err != nil {
+					err = fmt.Errorf("invalid float value for query parameter '%s': %w", tag, err)
+					c.Ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+					c.Abort()
+					return nil, err
 				}
+				val.Field(i).SetFloat(floatVal)
 			}
 		}
 	}
 	
 	if err := validateStruct(&obj); err != nil {
+		c.Ctx.Error(err.Error(), fasthttp.StatusUnprocessableEntity)
+		c.Abort()
 		return nil, err
 	}
 	
