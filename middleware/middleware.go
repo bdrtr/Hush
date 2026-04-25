@@ -100,7 +100,7 @@ func RequestID() hush.HandlerFunc {
 			if _, err := rand.Read(bytes); err == nil {
 				reqID = hex.EncodeToString(bytes)
 			} else {
-				reqID = "unknown"
+				reqID = fmt.Sprintf("fallback-%d", time.Now().UnixNano())
 			}
 		}
 		c.Ctx.Response.Header.Set("X-Request-ID", reqID)
