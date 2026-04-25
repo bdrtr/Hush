@@ -132,7 +132,7 @@ func buildParameters(t reflect.Type, in string) []map[string]interface{} {
 			"name": tag,
 			"in":   in,
 			"required": strings.Contains(field.Tag.Get("validate"), "required"),
-			"schema": buildSchema(field.Type),
+			"schema": buildSchemaWithSeen(field.Type, make(map[reflect.Type]bool)),
 		}
 		params = append(params, param)
 	}
@@ -141,8 +141,19 @@ func buildParameters(t reflect.Type, in string) []map[string]interface{} {
 
 // buildSchema recursively builds an OpenAPI schema from a reflect.Type
 func buildSchema(t reflect.Type) map[string]interface{} {
+	return buildSchemaWithSeen(t, make(map[reflect.Type]bool))
+}
+
+func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]interface{} {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
+	}
+
+	if seen[t] {
+		return map[string]interface{}{"type": "object"} // Break recursive cycle
+	}
+	if t.Kind() == reflect.Struct {
+		seen[t] = true
 	}
 
 	schema := make(map[string]interface{})
@@ -159,12 +170,12 @@ func buildSchema(t reflect.Type) map[string]interface{} {
 			} else {
 				jsonTag = strings.Split(jsonTag, ",")[0]
 			}
-			properties[jsonTag] = buildSchema(field.Type)
+			properties[jsonTag] = buildSchemaWithSeen(field.Type, seen)
 		}
 		schema["properties"] = properties
 	case reflect.Slice, reflect.Array:
 		schema["type"] = "array"
-		schema["items"] = buildSchema(t.Elem())
+		schema["items"] = buildSchemaWithSeen(t.Elem(), seen)
 	case reflect.String:
 		schema["type"] = "string"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
