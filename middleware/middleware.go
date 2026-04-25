@@ -214,6 +214,9 @@ func JWT(secret string) hush.HandlerFunc {
 // Note: fasthttp handles timeouts at the server level via ReadTimeout/WriteTimeout.
 func Timeout(timeout time.Duration) hush.HandlerFunc {
 	return func(c *hush.Context) {
+		// Pass the deadline downstream so handlers/DB calls can respect it via context.WithTimeout
+		c.Set("timeout", timeout)
+		c.Ctx.SetUserValue("deadline", time.Now().Add(timeout))
 		c.Next()
 	}
 }
