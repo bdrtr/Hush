@@ -37,7 +37,7 @@ func WithIdleTimeout(t time.Duration) Option { return func(c *Config) { c.IdleTi
 // WithConcurrency sets the maximum number of concurrent connections the server may serve.
 func WithConcurrency(n int) Option { return func(c *Config) { c.Concurrency = n } }
 
-// WithReduceMemoryUsage aggregates and delays small writes to reduce memory usage.
+// WithReduceMemoryUsage reduces per-connection memory usage at the cost of slightly lower throughput.
 func WithReduceMemoryUsage(b bool) Option { return func(c *Config) { c.ReduceMemoryUsage = b } }
 
 // WithSoftMemoryLimit configures the runtime's soft memory limit (GOMEMLIMIT).
