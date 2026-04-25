@@ -2,9 +2,11 @@ package hush
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/bytedance/sonic"
 	"github.com/go-playground/validator/v10"
@@ -129,5 +131,18 @@ var validate = validator.New()
 
 // validateStruct uses go-playground/validator/v10 to enforce advanced validation rules.
 func validateStruct(obj interface{}) error {
-	return validate.Struct(obj)
+	err := validate.Struct(obj)
+	if err == nil {
+		return nil
+	}
+	
+	var validationErrors validator.ValidationErrors
+	if errors.As(err, &validationErrors) {
+		msgs := make([]string, 0, len(validationErrors))
+		for _, e := range validationErrors {
+			msgs = append(msgs, fmt.Sprintf("field '%s' failed on '%s'", e.Field(), e.Tag()))
+		}
+		return fmt.Errorf("validation failed: %s", strings.Join(msgs, "; "))
+	}
+	return err
 }
