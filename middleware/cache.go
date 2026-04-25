@@ -72,8 +72,8 @@ func Cache(duration time.Duration, maxEntries int, maxResponseSize int) hush.Han
 			copy(contentTypeCopy, c.Ctx.Response.Header.ContentType())
 
 			mu.Lock()
-			// Pseudo-LRU: Random eviction if max capacity reached
-			if len(cache) >= maxEntries {
+			// Random Eviction: Go map iteration order is random, so this naturally drops a random key
+			if maxEntries > 0 && len(cache) >= maxEntries {
 				for k := range cache {
 					delete(cache, k)
 					break
