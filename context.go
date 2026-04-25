@@ -165,6 +165,8 @@ func (c *Context) SSE(streamer func(w *bufio.Writer) error) {
 }
 
 // Upgrade upgrades the HTTP connection to a WebSocket connection securely.
+// WARNING: Passing "*" in allowedOrigins will accept connections from ANY origin,
+// bypassing CORS protections. Only use "*" for completely public, non-authenticated APIs.
 func (c *Context) Upgrade(allowedOrigins []string, handler func(conn *websocket.Conn)) error {
 	u := websocket.FastHTTPUpgrader{
 		ReadBufferSize:  1024,
