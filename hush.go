@@ -79,22 +79,25 @@ func (engine *Engine) Handler(ctx *fasthttp.RequestCtx) {
 	
 	c.reset(ctx, engine)
 
+	engine.mu.RLock()
 	node := engine.router.get(method, path, c)
+	mws := append([]HandlerFunc{}, engine.middlewares...)
+	engine.mu.RUnlock()
 
 	if node != nil {
 		c.handlers = node.handlers
 		c.Next()
 	} else if method == fasthttp.MethodOptions {
-		// Automatically handle CORS preflight if no specific OPTIONS route exists
-		c.handlers = append([]HandlerFunc{}, engine.middlewares...)
-		c.handlers = append(c.handlers, func(ctx *Context) {
+		// Automatically handle CORS preflight if no specific OPTIONS route exists.
+		// Note: If CORS middleware is already registered globally, it will intercept
+		// and abort the request before reaching the 204 handler below.
+		c.handlers = append(mws, func(ctx *Context) {
 			ctx.Ctx.SetStatusCode(fasthttp.StatusNoContent)
 		})
 		c.Next()
 	} else {
 		// Run global middlewares even for 404s (so Logger/CORS still fire)
-		c.handlers = append([]HandlerFunc{}, engine.middlewares...)
-		c.handlers = append(c.handlers, func(ctx *Context) {
+		c.handlers = append(mws, func(ctx *Context) {
 			ctx.Ctx.Error("Not Found", fasthttp.StatusNotFound)
 		})
 		c.Next()
