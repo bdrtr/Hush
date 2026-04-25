@@ -43,7 +43,13 @@ func WithReduceMemoryUsage(b bool) Option { return func(c *Config) { c.ReduceMem
 // WithSoftMemoryLimit configures the runtime's soft memory limit (GOMEMLIMIT).
 // This instructs the Go GC to delay running until this limit is approached,
 // eliminating micro-pauses and dramatically reducing P99 latency.
-func WithSoftMemoryLimit(limit int64) Option { return func(c *Config) { c.SoftMemoryLimit = limit } }
+func WithSoftMemoryLimit(limit int64) Option {
+	return func(c *Config) {
+		if limit > 0 {
+			c.SoftMemoryLimit = limit
+		}
+	}
+}
 
 // WithDebug enables or disables debug mode (e.g. printing route registration).
 func WithDebug(b bool) Option { return func(c *Config) { c.Debug = b } }
