@@ -46,13 +46,18 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 		methodLower := strings.ToLower(route.Method)
 		
 		op := map[string]interface{}{
-			"summary": route.Summary,
-			"tags":    route.Tags,
 			"responses": map[string]interface{}{
 				"200": map[string]interface{}{
 					"description": "OK",
 				},
 			},
+		}
+
+		if route.Summary != "" {
+			op["summary"] = route.Summary
+		}
+		if len(route.Tags) > 0 {
+			op["tags"] = route.Tags
 		}
 
 		var parameters []map[string]interface{}
