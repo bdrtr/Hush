@@ -55,9 +55,9 @@ func WithLogger(l fasthttp.Logger) Option { return func(c *Config) { c.Logger = 
 func DefaultConfig() *Config {
 	return &Config{
 		MaxRequestBodySize: 10 * 1024 * 1024, // 10MB limit prevents large payload DoS
-		ReadTimeout:        30 * time.Second,  // Protects against Slowloris (slow read)
-		WriteTimeout:       30 * time.Second,  // Protects against slow clients
-		IdleTimeout:        90 * time.Second,  // Keep-Alive connection timeout
+		ReadTimeout:        10 * time.Second,  // Protects against Slowloris (slow read)
+		WriteTimeout:       10 * time.Second,  // Protects against slow clients
+		IdleTimeout:        60 * time.Second,  // Keep-Alive connection timeout
 		Concurrency:        256 * 1024,        // Fasthttp default (256k concurrent)
 		Debug:              false,
 	}
