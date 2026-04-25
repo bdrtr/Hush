@@ -136,10 +136,19 @@ func buildParameters(t reflect.Type, in string) []map[string]interface{} {
 			continue
 		}
 		
+		validateTag := field.Tag.Get("validate")
+		isRequired := false
+		for _, rule := range strings.Split(validateTag, ",") {
+			if strings.TrimSpace(rule) == "required" {
+				isRequired = true
+				break
+			}
+		}
+		
 		param := map[string]interface{}{
 			"name": tag,
 			"in":   in,
-			"required": strings.Contains(field.Tag.Get("validate"), "required"),
+			"required": isRequired,
 			"schema": buildSchemaWithSeen(field.Type, make(map[reflect.Type]bool)),
 		}
 		params = append(params, param)
@@ -160,13 +169,14 @@ func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]
 	if seen[t] {
 		return map[string]interface{}{"type": "object"} // Break recursive cycle
 	}
-	if t.Kind() == reflect.Struct {
-		if t == reflect.TypeOf(time.Time{}) {
-			schema := make(map[string]interface{})
-			schema["type"] = "string"
-			schema["format"] = "date-time"
-			return schema
+	if t == reflect.TypeOf(time.Time{}) {
+		return map[string]interface{}{
+			"type":   "string",
+			"format": "date-time",
 		}
+	}
+
+	if t.Kind() == reflect.Struct {
 		seen[t] = true
 	}
 
@@ -211,13 +221,18 @@ func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]
 
 // ServeSwaggerUI serves the swagger.json and a basic UI.
 func (e *Engine) ServeSwaggerUI(path string) {
-	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "'\"<>") {
+	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "'\"<>\n\r\t ") {
 		panic("hush: invalid swagger path, potential XSS or malformed route")
 	}
 
+	var once sync.Once
+	var cachedSpec *SwaggerSpec
+
 	e.GET(path+"/swagger.json", func(c *Context) {
-		spec := e.GenerateOpenAPI()
-		c.Ok(spec)
+		once.Do(func() {
+			cachedSpec = e.GenerateOpenAPI()
+		})
+		c.Ok(cachedSpec)
 	}).WithSummary("Serve OpenAPI Specification")
 	
 	e.GET(path, func(c *Context) {
