@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -110,7 +111,9 @@ func (e *Engine) GenerateOpenAPI() *SwaggerSpec {
 	return spec
 }
 
-// buildParameters extracts OpenAPI parameters from struct tags
+// buildParameters extracts OpenAPI parameters from struct tags.
+// Struct tags like `query:"name"` or `header:"name"` should be used.
+// Example: Name string `query:"name" validate:"required"`
 func buildParameters(t reflect.Type, in string) []map[string]interface{} {
 	var params []map[string]interface{}
 	for t.Kind() == reflect.Ptr {
@@ -153,6 +156,11 @@ func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]
 		return map[string]interface{}{"type": "object"} // Break recursive cycle
 	}
 	if t.Kind() == reflect.Struct {
+		if t == reflect.TypeOf(time.Time{}) {
+			schema["type"] = "string"
+			schema["format"] = "date-time"
+			return schema
+		}
 		seen[t] = true
 	}
 
@@ -176,6 +184,9 @@ func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]
 	case reflect.Slice, reflect.Array:
 		schema["type"] = "array"
 		schema["items"] = buildSchemaWithSeen(t.Elem(), seen)
+	case reflect.Map:
+		schema["type"] = "object"
+		schema["additionalProperties"] = buildSchemaWithSeen(t.Elem(), seen)
 	case reflect.String:
 		schema["type"] = "string"
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -211,11 +222,11 @@ func (e *Engine) ServeSwaggerUI(path string) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="SwaggerUI" />
   <title>SwaggerUI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui.css" />
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.8/swagger-ui.css" integrity="sha384-H/0BRJAt4dZN0emsA7KWNBXSR7MAz3EbpckPsfkxP0pn7zYIZbH087mKXFoBkXNw" crossorigin="anonymous" />
 </head>
 <body>
 <div id="swagger-ui"></div>
-<script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js" crossorigin></script>
+<script src="https://unpkg.com/swagger-ui-dist@5.11.8/swagger-ui-bundle.js" integrity="sha384-WRSjyuE/ddFcTrGFUQ9YBNKPru2cRfeWfTSu6ATw7SzHl1f+TUV7JafqRk/6NaSq" crossorigin="anonymous"></script>
 <script>
   window.onload = () => {
     window.ui = SwaggerUIBundle({
