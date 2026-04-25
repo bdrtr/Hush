@@ -2,7 +2,9 @@ package hush
 
 import "reflect"
 
-// Route represents a registered route and its metadata for OpenAPI
+// Route represents a registered route and its metadata for OpenAPI.
+// WARNING: Route builder methods (WithTags, WithSummary, etc.) are NOT thread-safe.
+// They should only be called sequentially during server initialization, not concurrently.
 type Route struct {
 	Method       string
 	Path         string
@@ -14,13 +16,15 @@ type Route struct {
 	HeaderParams reflect.Type
 }
 
-// WithSummary adds a summary to the route for OpenAPI
+// WithSummary adds a summary to the route for OpenAPI.
+// Note: This method is not thread-safe.
 func (r *Route) WithSummary(summary string) *Route {
 	r.Summary = summary
 	return r
 }
 
-// WithTags adds tags to the route for OpenAPI
+// WithTags adds tags to the route for OpenAPI.
+// Note: This method is not thread-safe.
 func (r *Route) WithTags(tags ...string) *Route {
 	r.Tags = append(r.Tags, tags...)
 	return r
