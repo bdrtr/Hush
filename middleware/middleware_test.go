@@ -156,3 +156,62 @@ func TestJWTMiddleware(t *testing.T) {
 		t.Errorf("Expected 401 for tampered token, got %d", ctx2.Response.StatusCode())
 	}
 }
+
+func TestStatsMiddleware(t *testing.T) {
+	app := hush.New()
+	app.Use(middleware.Stats())
+	
+	app.GET("/ok", func(c *hush.Context) {
+		c.Ok("ok")
+	})
+	
+	app.GET("/error", func(c *hush.Context) {
+		c.Ctx.SetStatusCode(500)
+	})
+
+	initialStats := middleware.GetStats()
+
+	ctx1 := &fasthttp.RequestCtx{}
+	ctx1.Request.SetRequestURI("/ok")
+	ctx1.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx1)
+
+	ctx2 := &fasthttp.RequestCtx{}
+	ctx2.Request.SetRequestURI("/error")
+	ctx2.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx2)
+
+	stats := middleware.GetStats()
+	
+	if stats.TotalRequests != initialStats.TotalRequests + 2 {
+		t.Errorf("Expected +2 total requests, got %d", stats.TotalRequests - initialStats.TotalRequests)
+	}
+	if stats.ErrorResponses != initialStats.ErrorResponses + 1 {
+		t.Errorf("Expected +1 error response, got %d", stats.ErrorResponses - initialStats.ErrorResponses)
+	}
+	if stats.ActiveRequests != 0 {
+		t.Errorf("Expected 0 active requests, got %d", stats.ActiveRequests)
+	}
+}
+
+func TestContextualLogging(t *testing.T) {
+	// This test primarily ensures the middleware doesn't panic when injected with request_id
+	app := hush.New()
+	
+	// Use RequestID first to inject into context, then Logger to read it
+	app.Use(middleware.RequestID())
+	app.Use(middleware.Logger())
+	
+	app.GET("/test", func(c *hush.Context) {
+		reqId, ok := c.Get("request_id")
+		if !ok || reqId == "" {
+			t.Errorf("Expected request_id to be set by middleware")
+		}
+		c.Ok("ok")
+	})
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/test")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	app.Handler(ctx)
+}

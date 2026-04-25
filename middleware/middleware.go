@@ -8,6 +8,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bdrtr/hush"
@@ -58,12 +59,20 @@ func Logger(loggers ...*slog.Logger) hush.HandlerFunc {
 		c.Next()
 		duration := time.Since(start)
 		
-		logger.Info("request processed", 
+		attrs := []any{
 			slog.String("method", string(c.Ctx.Method())),
 			slog.String("path", string(c.Ctx.Path())),
 			slog.Int("status", c.Ctx.Response.StatusCode()),
 			slog.Duration("duration", duration),
-		)
+		}
+
+		if reqID, ok := c.Get("request_id"); ok {
+			if strID, isStr := reqID.(string); isStr {
+				attrs = append(attrs, slog.String("request_id", strID))
+			}
+		}
+
+		logger.Info("request processed", attrs...)
 	}
 }
 
@@ -79,11 +88,19 @@ func Recovery(loggers ...*slog.Logger) hush.HandlerFunc {
 	return func(c *hush.Context) {
 		defer func() {
 			if err := recover(); err != nil {
-				logger.Error("panic recovered", 
+				attrs := []any{
 					slog.Any("error", err),
 					slog.String("stack", string(debug.Stack())),
 					slog.String("path", string(c.Ctx.Path())),
-				)
+				}
+
+				if reqID, ok := c.Get("request_id"); ok {
+					if strID, isStr := reqID.(string); isStr {
+						attrs = append(attrs, slog.String("request_id", strID))
+					}
+				}
+
+				logger.Error("panic recovered", attrs...)
 				c.AbortWithStatus(fasthttp.StatusInternalServerError)
 			}
 		}()
@@ -218,5 +235,40 @@ func Timeout(timeout time.Duration) hush.HandlerFunc {
 		c.Set("timeout", timeout)
 		c.Ctx.SetUserValue("deadline", time.Now().Add(timeout))
 		c.Next()
+	}
+}
+
+// AtomicStats holds lock-free counters for server metrics.
+type AtomicStats struct {
+	TotalRequests  uint64 `json:"total_requests"`
+	ActiveRequests int64  `json:"active_requests"`
+	ErrorResponses uint64 `json:"error_responses"`
+}
+
+var globalStats AtomicStats
+
+// Stats returns a middleware that tracks basic metrics using zero-allocation atomic counters.
+func Stats() hush.HandlerFunc {
+	return func(c *hush.Context) {
+		atomic.AddUint64(&globalStats.TotalRequests, 1)
+		atomic.AddInt64(&globalStats.ActiveRequests, 1)
+		
+		defer func() {
+			atomic.AddInt64(&globalStats.ActiveRequests, -1)
+			if c.Ctx.Response.StatusCode() >= 400 {
+				atomic.AddUint64(&globalStats.ErrorResponses, 1)
+			}
+		}()
+		
+		c.Next()
+	}
+}
+
+// GetStats returns a snapshot of the current atomic metrics.
+func GetStats() AtomicStats {
+	return AtomicStats{
+		TotalRequests:  atomic.LoadUint64(&globalStats.TotalRequests),
+		ActiveRequests: atomic.LoadInt64(&globalStats.ActiveRequests),
+		ErrorResponses: atomic.LoadUint64(&globalStats.ErrorResponses),
 	}
 }
