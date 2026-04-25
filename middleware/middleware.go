@@ -26,6 +26,13 @@ func CORS(allowOrigins string, allowMethods ...string) hush.HandlerFunc {
 		c.Ctx.Response.Header.Set("Access-Control-Allow-Origin", allowOrigins)
 		c.Ctx.Response.Header.Set("Access-Control-Allow-Methods", methods)
 		c.Ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+		
+		// Guard: Never set Allow-Credentials to true if Allow-Origin is a wildcard.
+		// This causes browser security errors and is an inherent security vulnerability.
+		if allowOrigins != "*" {
+			// In the future, if a config requires credentials, it is safe to set here.
+			// c.Ctx.Response.Header.Set("Access-Control-Allow-Credentials", "true")
+		}
 
 		if string(c.Ctx.Method()) == fasthttp.MethodOptions {
 			c.AbortWithStatus(fasthttp.StatusNoContent)
