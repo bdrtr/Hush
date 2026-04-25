@@ -1,6 +1,7 @@
 package hush
 
 import (
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -11,15 +12,20 @@ type RouterGroup struct {
 	prefix      string
 	middlewares []HandlerFunc
 	engine      *Engine
+	mu          sync.RWMutex
 }
 
 // Use adds middleware to the group.
 func (rg *RouterGroup) Use(middlewares ...HandlerFunc) {
+	rg.mu.Lock()
+	defer rg.mu.Unlock()
 	rg.middlewares = append(rg.middlewares, middlewares...)
 }
 
 // Group creates a new sub-group.
 func (rg *RouterGroup) Group(prefix string) *RouterGroup {
+	rg.mu.RLock()
+	defer rg.mu.RUnlock()
 	return &RouterGroup{
 		prefix:      rg.prefix + prefix,
 		middlewares: append([]HandlerFunc{}, rg.middlewares...),
@@ -30,7 +36,11 @@ func (rg *RouterGroup) Group(prefix string) *RouterGroup {
 // addRoute handles the actual route registration.
 func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Route {
 	path := rg.prefix + comp
+	
+	rg.mu.RLock()
 	finalHandlers := append([]HandlerFunc{}, rg.middlewares...)
+	rg.mu.RUnlock()
+	
 	finalHandlers = append(finalHandlers, handlers...)
 
 	rg.engine.mu.Lock()
@@ -91,6 +101,8 @@ func (rg *RouterGroup) Static(path, root string) {
 		AcceptByteRange:    true,
 		CacheDuration:      10 * time.Second, // Prevent disk thrashing
 		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
+		CleanPath:          true,
+		PathNotFound:       func(ctx *fasthttp.RequestCtx) { ctx.Error("Not Found", fasthttp.StatusNotFound) },
 	}
 	fsHandler := fs.NewRequestHandler()
 
