@@ -65,9 +65,17 @@ func BindQuery[T any](c *Context) (*T, error) {
 		queryVal := args.Peek(tag)
 		if len(queryVal) > 0 {
 			strVal := string(queryVal)
-			switch val.Field(i).Kind() {
+			fieldVal := val.Field(i)
+			
+			if fieldVal.Kind() == reflect.Ptr {
+				ptr := reflect.New(fieldVal.Type().Elem())
+				fieldVal.Set(ptr)
+				fieldVal = ptr.Elem()
+			}
+
+			switch fieldVal.Kind() {
 			case reflect.String:
-				val.Field(i).SetString(strVal)
+				fieldVal.SetString(strVal)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				intVal, err := strconv.ParseInt(strVal, 10, 64)
 				if err != nil {
@@ -76,7 +84,7 @@ func BindQuery[T any](c *Context) (*T, error) {
 					c.Abort()
 					return nil, err
 				}
-				val.Field(i).SetInt(intVal)
+				fieldVal.SetInt(intVal)
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 				uintVal, err := strconv.ParseUint(strVal, 10, 64)
 				if err != nil {
@@ -85,7 +93,7 @@ func BindQuery[T any](c *Context) (*T, error) {
 					c.Abort()
 					return nil, err
 				}
-				val.Field(i).SetUint(uintVal)
+				fieldVal.SetUint(uintVal)
 			case reflect.Bool:
 				boolVal, err := strconv.ParseBool(strVal)
 				if err != nil {
@@ -94,7 +102,7 @@ func BindQuery[T any](c *Context) (*T, error) {
 					c.Abort()
 					return nil, err
 				}
-				val.Field(i).SetBool(boolVal)
+				fieldVal.SetBool(boolVal)
 			case reflect.Float32, reflect.Float64:
 				floatVal, err := strconv.ParseFloat(strVal, 64)
 				if err != nil {
@@ -103,7 +111,7 @@ func BindQuery[T any](c *Context) (*T, error) {
 					c.Abort()
 					return nil, err
 				}
-				val.Field(i).SetFloat(floatVal)
+				fieldVal.SetFloat(floatVal)
 			}
 		}
 	}
