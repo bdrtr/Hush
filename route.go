@@ -41,24 +41,40 @@ func (r *Route) WithTags(tags ...string) *Route {
 
 // WithBody documents the request body type for OpenAPI
 func WithBody[T any](r *Route) *Route {
-	r.RequestBody = reflect.TypeOf((*T)(nil)).Elem()
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	if t.Kind() == reflect.Interface {
+		panic("hush: WithBody does not support interface types, use a concrete struct")
+	}
+	r.RequestBody = t
 	return r
 }
 
 // WithResponse documents the response body type for OpenAPI
 func WithResponse[T any](r *Route) *Route {
-	r.ResponseBody = reflect.TypeOf((*T)(nil)).Elem()
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	if t.Kind() == reflect.Interface {
+		panic("hush: WithResponse does not support interface types, use a concrete struct")
+	}
+	r.ResponseBody = t
 	return r
 }
 
 // WithQuery documents the query parameters type for OpenAPI
 func WithQuery[T any](r *Route) *Route {
-	r.QueryParams = reflect.TypeOf((*T)(nil)).Elem()
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	if t.Kind() == reflect.Interface {
+		panic("hush: WithQuery does not support interface types, use a concrete struct")
+	}
+	r.QueryParams = t
 	return r
 }
 
 // WithHeader documents the header parameters type for OpenAPI
 func WithHeader[T any](r *Route) *Route {
-	r.HeaderParams = reflect.TypeOf((*T)(nil)).Elem()
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	if t.Kind() == reflect.Interface {
+		panic("hush: WithHeader does not support interface types, use a concrete struct")
+	}
+	r.HeaderParams = t
 	return r
 }
