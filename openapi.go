@@ -162,6 +162,7 @@ func buildSchemaWithSeen(t reflect.Type, seen map[reflect.Type]bool) map[string]
 	}
 	if t.Kind() == reflect.Struct {
 		if t == reflect.TypeOf(time.Time{}) {
+			schema := make(map[string]interface{})
 			schema["type"] = "string"
 			schema["format"] = "date-time"
 			return schema

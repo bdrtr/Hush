@@ -108,7 +108,6 @@ func (rg *RouterGroup) Static(path, root string) {
 		AcceptByteRange:    true,
 		CacheDuration:      10 * time.Minute, // Keep files in memory to reduce disk I/O
 		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
-		CleanPath:          true,
 		PathNotFound:       func(ctx *fasthttp.RequestCtx) { ctx.Error("Not Found", fasthttp.StatusNotFound) },
 	}
 	fsHandler := fs.NewRequestHandler()

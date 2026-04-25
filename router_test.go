@@ -58,6 +58,27 @@ func TestRouter_TableDriven(t *testing.T) {
 			reqPath:    "/hello",
 			expectPath: "/hello/",
 		},
+		{
+			name:       "Empty Wildcard Match Prevention",
+			routes:     []string{"/users/:id"},
+			method:     "GET",
+			reqPath:    "/users/",
+			expectNil:  true,
+		},
+		{
+			name:       "Catch-all Backtracking",
+			routes:     []string{"/files/*path", "/files/config"},
+			method:     "GET",
+			reqPath:    "/files/config",
+			expectPath: "/files/config", // Must find the exact static node by backtracking
+		},
+		{
+			name:       "Static Precedence over Wildcard",
+			routes:     []string{"/files/:name", "/files/config"}, // Wildcard inserted first
+			method:     "GET",
+			reqPath:    "/files/config",
+			expectPath: "/files/config", // Static must take precedence
+		},
 	}
 
 	for _, tt := range tests {
@@ -106,4 +127,16 @@ func TestRouter_ConflictPanic(t *testing.T) {
 	r := newRouter()
 	r.insert("GET", "/users/:id", []HandlerFunc{func(c *Context) {}})
 	r.insert("GET", "/users/:username", []HandlerFunc{func(c *Context) {}})
+}
+
+func TestRouter_DuplicatePanic(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic when inserting an exact duplicate route")
+		}
+	}()
+
+	r := newRouter()
+	r.insert("GET", "/exact/duplicate", []HandlerFunc{func(c *Context) {}})
+	r.insert("GET", "/exact/duplicate", []HandlerFunc{func(c *Context) {}})
 }
