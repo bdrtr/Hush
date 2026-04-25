@@ -61,7 +61,9 @@ func Provide[T any](e *Engine, instance T) {
 }
 
 
-// b2s converts byte slice to a string without memory allocation.
+// b2s converts a byte slice to string without allocation.
+// WARNING: The returned string is only valid for the duration of the request.
+// Do NOT store or pass to goroutines — fasthttp reuses the underlying buffer.
 func b2s(b []byte) string {
 	if len(b) == 0 {
 		return ""
@@ -142,6 +144,7 @@ func (engine *Engine) Run(addr string) error {
 	
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
 	
 	select {
 	case err := <-errCh:
@@ -171,6 +174,7 @@ func (engine *Engine) RunPrefork(addr string) error {
 	
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
 	
 	select {
 	case err := <-errCh:
@@ -195,6 +199,7 @@ func (engine *Engine) RunTLS(addr, certFile, keyFile string) error {
 	
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
 	
 	select {
 	case err := <-errCh:
