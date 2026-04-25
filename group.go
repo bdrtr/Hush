@@ -1,6 +1,7 @@
 package hush
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -22,7 +23,8 @@ func (rg *RouterGroup) Use(middlewares ...HandlerFunc) {
 	rg.middlewares = append(rg.middlewares, middlewares...)
 }
 
-// Group creates a new sub-group.
+// Group creates a new sub-group inheriting middlewares AT THE TIME OF CREATION.
+// Middlewares added to the parent after Group() is called will not be inherited.
 func (rg *RouterGroup) Group(prefix string) *RouterGroup {
 	rg.mu.RLock()
 	defer rg.mu.RUnlock()
@@ -42,6 +44,11 @@ func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Ro
 	rg.mu.RUnlock()
 	
 	finalHandlers = append(finalHandlers, handlers...)
+
+	const maxHandlers = 63
+	if len(finalHandlers) > maxHandlers {
+		panic(fmt.Sprintf("hush: too many handlers (max %d)", maxHandlers))
+	}
 
 	rg.engine.mu.Lock()
 	defer rg.engine.mu.Unlock()
