@@ -66,6 +66,10 @@ func (r *Router) insert(method, path string, handlers []HandlerFunc) {
 		}
 		root = child
 	}
+
+	if root.handlers != nil {
+		panic("hush: route already registered: " + method + " " + path)
+	}
 	root.path = path
 	root.handlers = handlers
 
@@ -134,7 +138,9 @@ func (r *Router) search(n *node, path string, c *Context) *node {
 					if child.handlers != nil {
 						return child
 					}
-					return nil
+					// Backtrack if catch-all has no handlers, so sibling nodes can be tested
+					c.paramCount = initialParamCount
+					continue
 				}
 				// Normal parameter: avoid allocations
 				c.addParam(child.part[1:], part)
