@@ -124,7 +124,8 @@ func (r *Router) search(n *node, path string, c *Context) *node {
 	}
 
 	for _, child := range n.children {
-		if child.part == part || child.isWild {
+		// Prevent wildcard from matching an empty part (e.g. from a trailing slash)
+		if child.part == part || (child.isWild && part != "") {
 			initialParamCount := c.paramCount
 			if child.isWild {
 				if strings.HasPrefix(child.part, "*") {
