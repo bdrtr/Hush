@@ -44,9 +44,13 @@ func Cache(duration time.Duration, maxEntries int, maxResponseSize int) hush.Han
 				c.Abort() // Prevent next handlers from executing
 				return
 			}
-			// Cache expired, delete it
+			// Cache expired, delete it safely
 			mu.Lock()
-			delete(cache, key)
+			// Double-check because another goroutine might have updated the cache between RUnlock and Lock
+			val, ok = cache[key]
+			if ok && time.Now().After(val.expires) {
+				delete(cache, key)
+			}
 			mu.Unlock()
 		}
 		
