@@ -13,21 +13,20 @@ type RouterGroup struct {
 	prefix      string
 	middlewares []HandlerFunc
 	engine      *Engine
-	mu          sync.RWMutex
 }
 
 // Use adds middleware to the group.
 func (rg *RouterGroup) Use(middlewares ...HandlerFunc) {
-	rg.mu.Lock()
-	defer rg.mu.Unlock()
+	rg.engine.mu.Lock()
+	defer rg.engine.mu.Unlock()
 	rg.middlewares = append(rg.middlewares, middlewares...)
 }
 
 // Group creates a new sub-group inheriting middlewares AT THE TIME OF CREATION.
 // Middlewares added to the parent after Group() is called will not be inherited.
 func (rg *RouterGroup) Group(prefix string) *RouterGroup {
-	rg.mu.RLock()
-	defer rg.mu.RUnlock()
+	rg.engine.mu.RLock()
+	defer rg.engine.mu.RUnlock()
 	return &RouterGroup{
 		prefix:      rg.prefix + prefix,
 		middlewares: append([]HandlerFunc{}, rg.middlewares...),
@@ -39,9 +38,9 @@ func (rg *RouterGroup) Group(prefix string) *RouterGroup {
 func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Route {
 	path := rg.prefix + comp
 	
-	rg.mu.RLock()
+	rg.engine.mu.RLock()
 	finalHandlers := append([]HandlerFunc{}, rg.middlewares...)
-	rg.mu.RUnlock()
+	rg.engine.mu.RUnlock()
 	
 	finalHandlers = append(finalHandlers, handlers...)
 
@@ -49,9 +48,6 @@ func (rg *RouterGroup) addRoute(method, comp string, handlers []HandlerFunc) *Ro
 	if len(finalHandlers) > maxHandlers {
 		panic(fmt.Sprintf("hush: too many handlers (max %d)", maxHandlers))
 	}
-
-	rg.engine.mu.Lock()
-	defer rg.engine.mu.Unlock()
 
 	rg.engine.router.insert(method, path, finalHandlers)
 
@@ -107,7 +103,17 @@ func (rg *RouterGroup) Static(path, root string) {
 		Compress:           true, // Compress static assets (brotli/gzip) to save bandwidth
 		AcceptByteRange:    true,
 		CacheDuration:      10 * time.Minute, // Keep files in memory to reduce disk I/O
-		PathRewrite:        fasthttp.NewPathPrefixStripper(len(path)),
+		PathRewrite:        func(ctx *fasthttp.RequestCtx) []byte {
+			p := string(ctx.Path())
+			if len(p) >= len(path) {
+				p = p[len(path):]
+			}
+			if p == "" || p[0] != '/' {
+				p = "/" + p
+			}
+			return []byte(p)
+		},
+		CleanPath:          true,
 		PathNotFound:       func(ctx *fasthttp.RequestCtx) { ctx.Error("Not Found", fasthttp.StatusNotFound) },
 	}
 	fsHandler := fs.NewRequestHandler()
@@ -116,5 +122,6 @@ func (rg *RouterGroup) Static(path, root string) {
 		fsHandler(c.Ctx)
 	}
 	rg.GET(path+"/*filepath", handler)
+	rg.GET(path+"/", handler)
 	rg.GET(path, handler)
 }
