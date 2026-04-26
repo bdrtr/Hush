@@ -60,6 +60,15 @@ func Provide[T any](e *Engine, instance T) {
 	e.container[typ] = instance
 }
 
+// Provide registers a singleton dependency on the engine instance.
+// Unlike the generic Provide[T] function, this uses runtime type detection.
+func (e *Engine) Provide(instance interface{}) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	typ := reflect.TypeOf(instance)
+	e.container[typ] = instance
+}
+
 
 // b2s converts a byte slice to string without allocation.
 // WARNING: The returned string is only valid for the duration of the request.

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/bdrtr/hush/ai"
+	"github.com/bdrtr/hush/whisper"
 	"github.com/bytedance/sonic"
 	"github.com/fasthttp/websocket"
 	"github.com/valyala/fasthttp"
@@ -88,6 +89,11 @@ func (c *Context) Set(key string, value interface{}) {
 func (c *Context) Get(key string) (interface{}, bool) {
 	val := c.Ctx.UserValue(key)
 	return val, val != nil
+}
+
+// DB retrieves the injected Whisper ORM instance from the DI container.
+func (c *Context) DB() *whisper.DB {
+	return Inject[*whisper.DB](c)
 }
 
 // Inject resolves a dependency from the Engine's DI container.
